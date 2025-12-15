@@ -229,11 +229,13 @@
      (->> (:all-cards-and-flips @app-state)
           (vals)
           (remove :replaced_by)
+          (filter :title)
           (map (fn [c] [(:title c) (span-of (:title c) (tr-data :title c))]))
           (sort-by (comp count str first) >))
      (->> (:all-cards-and-flips @app-state)
           (vals)
           (remove :replaced_by)
+          (filter :title)
           (map (fn [c] [(tr-data :title c) (span-of (:title c) (tr-data :title c))]))
           (sort-by (comp count str first) >))))))
 
