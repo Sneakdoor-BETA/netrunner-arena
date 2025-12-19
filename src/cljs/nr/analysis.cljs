@@ -1,7 +1,15 @@
-(ns nr.analysis)
-   
+(ns nr.analysis
+  (:require [reagent.core :as r]))
+
 (defn analysis []
-  [:div.page-container
-   [:div.stats-bg]
-   [:div#jnet-stats-root {:style {:overflow "auto"}} ]
-  ])
+  (r/create-class
+    {:display-name "analysis"
+     :component-did-mount
+     (fn [_]
+       (when (.getElementById js/document "jnet-stats-root")
+         (js/jnetPluginStatsDashboard)))
+     :reagent-render
+     (fn []
+       [:div.page-container
+        [:div.stats-bg]
+        [:div#jnet-stats-root]])}))
