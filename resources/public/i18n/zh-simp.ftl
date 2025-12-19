@@ -992,6 +992,8 @@ nav_settings = 设置
 
 nav_stats = 统计
 
+nav_analysis = 分析
+
 nav_tournaments = 比赛
 
 nav_users = 用户

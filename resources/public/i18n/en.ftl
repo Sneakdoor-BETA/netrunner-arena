@@ -1155,6 +1155,8 @@ nav_settings = Settings
 
 nav_stats = Stats
 
+nav_analysis = Analysis
+
 nav_tournaments = Tournaments
 
 nav_users = Users
