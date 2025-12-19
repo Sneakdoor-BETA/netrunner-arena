@@ -13,6 +13,7 @@
    [nr.landing :refer [landing]]
    [nr.lobby :refer [game-lobby]]
    [nr.stats :refer [stats]]
+   [nr.analysis :refer [analysis]]
    [nr.tournament :refer [tournament]]
    [nr.prizes :refer [prizes]]
    [nr.users :refer [users]]
@@ -54,6 +55,8 @@
                   :view account}]
      ["/stats" {:name :nav/stats
                 :view stats}]
+     ["/analysis" {:name :nav/analysis
+                :view analysis}]
      ["/about" {:name :nav/about
                 :view about}]
      ["/tournament" {:name :nav/tournament

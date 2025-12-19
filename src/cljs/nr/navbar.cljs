@@ -35,6 +35,10 @@
     :cls "stats"
     :route "/stats"
     :show? :user}
+   {:title [:nav_analysis "Analysis"]
+    :cls "analysis"
+    :route "/analysis"
+    :show? :user}
    {:title [:nav_about "About"]
     :cls "about"
     :route "/about"}

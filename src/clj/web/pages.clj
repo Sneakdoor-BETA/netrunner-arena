@@ -28,6 +28,7 @@
         [:link {:rel "apple-touch-icon" :href "/img/icons/jinteki_167.png"}]
         [:title "矩阵潜袭在线对战"]
         (hiccup/include-css "/lib/css/toastr.min.css")
+        (hiccup/include-css "/lib/css/jnet-stats.css")
         (if (= "dev" server-mode)
           (hiccup/include-css "/css/netrunner.css")
           (hiccup/include-css (str "/css/netrunner.css?v=" @frontend-version)))]
@@ -47,6 +48,7 @@
         (hiccup/include-js "https://code.jquery.com/ui/1.13.0/jquery-ui.min.js")
         (hiccup/include-js "/lib/js/bootstrap.min.js")
         (hiccup/include-js "/lib/js/toastr.min.js")
+        (hiccup/include-js "/lib/js/jnet-stats.js")
         [:script {:type "text/javascript"}
          (str "var user=" (json/generate-string user) ";")]
         (if (= "dev" server-mode)
