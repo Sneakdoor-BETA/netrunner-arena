@@ -28,3 +28,11 @@ lein uberjar
 ```shell
 java -XX:-OmitStackTraceInFastThrow -jar target/netrunner-standalone.jar
 ```
+
+## 第三方开源项目使用
+
+* [jnet-stats](https://github.com/multiaccess-studios/jnet-stats)
+
+## 维护者
+
+* [Eric03742](https://github.com/eric03742)
