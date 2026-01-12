@@ -23,6 +23,12 @@ npm run release
 lein uberjar
 ```
 
+## 添加牌背流程
+
+* 在 `resources/public/img/card-backs/` 中添加卡图文件。
+* 编辑 `data/card-backs.edn` 文件，添加卡背文件信息。
+* 使用如下命令更新数据库：`lein update-prizes --local <data文件夹所在路径> --no-card-images`
+
 ## 启动命令
 
 ```shell
