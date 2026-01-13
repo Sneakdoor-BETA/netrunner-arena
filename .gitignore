@@ -24,10 +24,11 @@ data/**
 !data/promos.edn
 !data/quotes-corp.edn
 !data/quotes-runner.edn
+!data/card-backs.edn
 
-/resources/public/img/card-backs/runner/
-/resources/public/img/card-backs/corp/
-/resources/public/img/card-backs/both/
+# /resources/public/img/card-backs/runner/
+# /resources/public/img/card-backs/corp/
+# /resources/public/img/card-backs/both/
 /resources/public/js/
 /resources/public/cljs/
 /resources/public/cljs-out/
@@ -41,7 +42,7 @@ data/**
 /data/mwls.edn
 /data/sets.edn
 /data/img
-/data/card-backs.edn
+# /data/card-backs.edn
 /.lein-failures
 
 config.edn
