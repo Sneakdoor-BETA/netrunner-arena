@@ -91,7 +91,7 @@
           [:a {:href route} [tr-span title]]])))])
 
 (defn wrapped []
-  [:ul
+  (when (:user @app-state) [:ul
    [:li {:class "active"}
     [:a {:href "/wrapped/wrapped.html"
          :target "_blank"
@@ -99,4 +99,4 @@
                      (.preventDefault e)
                      (js/window.open "/wrapped/wrapped.html" "_blank"))}
      [tr-span [:wrapped_title "2025 Annual Report"]]]
-    ]])
+    ]]))
