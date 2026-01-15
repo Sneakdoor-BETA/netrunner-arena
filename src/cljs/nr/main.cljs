@@ -2,7 +2,7 @@
   (:require
    [nr.appstate :refer [app-state]]
    [nr.auth :refer [auth-forms auth-menu]]
-   [nr.navbar :refer [navbar navigate]]
+   [nr.navbar :refer [navbar navigate wrapped]]
    [nr.routes :as routes]
    [nr.status-bar :refer [status]]
    [nr.ws :refer [start-router! lobby-updates-pause! lobby-updates-continue!]]
@@ -53,6 +53,7 @@
   [:<>
    [:nav.topnav.blue-shade
     [:div#left-menu [navbar]]
+    [:div#left-menu [wrapped]]
     [:div#right-menu [auth-menu]]
     [:div#status [status]]]
    [:div#auth-forms [auth-forms]]

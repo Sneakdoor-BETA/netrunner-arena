@@ -1758,3 +1758,5 @@ about_development = 开发
 about_donations = 打赏
 
 about_disclaimer = 版权信息
+
+wrapped_title = 2025年度报告
