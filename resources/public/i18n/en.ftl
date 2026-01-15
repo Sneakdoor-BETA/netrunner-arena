@@ -1944,3 +1944,5 @@ stats_winner = Winner: {$winner ->
 }
 
 stats_won = Won: {$won} ({NUMBER($percent, style: "percent")})
+
+wrapped_title = 2025 Annual Report
