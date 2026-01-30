@@ -17,7 +17,7 @@
    [game.core.costs :refer [total-available-credits]]
    [game.core.damage :refer [damage]]
    [game.core.def-helpers :refer [combine-abilities corp-recur defcard
-                                  do-brain-damage do-net-damage draw-abi give-tags offer-jack-out
+                                  do-brain-damage do-net-damage draw-abi give-tags make-icon offer-jack-out
                                   reorder-choice get-x-fn with-revealed-hand]]
    [game.core.drawing :refer [draw maybe-draw draw-up-to]]
    [game.core.effects :refer [any-effects get-effects is-disabled? is-disabled-reg? register-lingering-effect unregister-effects-for-card unregister-effect-by-uuid unregister-static-abilities update-disabled-cards]]
@@ -46,7 +46,7 @@
    [game.core.optional :refer [get-autoresolve set-autoresolve]]
    [game.core.payment :refer [can-pay? cost->string build-cost-label ->c]]
    [game.core.prompts :refer [cancellable clear-wait-prompt]]
-   [game.core.props :refer [add-counter add-icon add-prop remove-icon]]
+   [game.core.props :refer [add-counter add-prop]]
    [game.core.purging :refer [purge]]
    [game.core.revealing :refer [reveal reveal-loud]]
    [game.core.rezzing :refer [can-pay-to-rez? derez get-rez-cost rez]]
@@ -799,9 +799,9 @@
                             (empty? (filter #(and (:broken %) (:printed %)) (:subroutines card)))
                             :unrestricted))]
     {:advanceable :always
-     :subroutines [{:label "Gain 1 [Credit]. Place 1 advancement token"
+     :subroutines [{:label "Gain 1 [Credit]. Place 1 advancement counter"
                     :breakable breakable-fn
-                    :msg (msg "gain 1 [Credit] and place 1 advancement token on " (card-str state target))
+                    :msg (msg "gain 1 [Credit] and place 1 advancement counter on " (card-str state target))
                     :prompt "Choose an installed card"
                     :choices {:card installed?}
                     :async true
@@ -1110,8 +1110,8 @@
                                       :value (req {:subroutines (vec (repeat sub-count (do-brain-damage 1)))})})))}})
 
 (defcard "Builder"
-  (let [sub {:label "Place 1 advancement token on a piece of ice that can be advanced protecting this server"
-             :msg (msg "place 1 advancement token on " (card-str state target))
+  (let [sub {:label "Place 1 advancement counter on a piece of ice that can be advanced protecting this server"
+             :msg (msg "place 1 advancement counter on " (card-str state target))
              :choices {:req (req (and (ice? target)
                                       (can-be-advanced? state target)))}
              :async true
@@ -1312,10 +1312,10 @@
                                                  (seq (remove :broken (:subroutines (:ice context)))))))])))}]))}]})
 
 (defcard "Clairvoyant Monitor"
-  {:subroutines [(do-psi {:label "Place 1 advancement token and end the run"
+  {:subroutines [(do-psi {:label "Place 1 advancement counter and end the run"
                           :async true
-                          :prompt "Choose an installed card to place 1 advancement token on"
-                          :msg (msg "place 1 advancement token on "
+                          :prompt "Choose an installed card to place 1 advancement counter on"
+                          :msg (msg "place 1 advancement counter on "
                                     (card-str state target) " and end the run")
                           :choices {:card installed?}
                           :effect (req (wait-for
@@ -2079,11 +2079,12 @@
                                      (:title target)
                                      " abilities for the remainder of the run")
                            :effect (req (let [t target]
-                                          (add-icon state side card target "H" (faction-label card))
-                                          (register-events state side card
-                                            [{:event :run-ends
-                                              :duration :end-of-run
-                                              :effect (effect (remove-icon card t))}])
+                                          (register-lingering-effect
+                                            state side card
+                                            {:type :icon
+                                             :duration :end-of-run
+                                             :req (req (same-card? t target))
+                                             :value (make-icon "H" card)})
                                           (register-lingering-effect state side card (prevent-sub-break-by t))
                                           (effect-completed state side eid)))}
                           card nil))}
@@ -2253,8 +2254,8 @@
   {:flags {:rd-reveal (req true)}
    :subroutines [(gain-credits-sub 2)
                  {:async true
-                  :label "Pay up to 2 [Credits] to place up to 2 advancement tokens"
-                  :prompt "How many advancement tokens do you want to place?"
+                  :label "Pay up to 2 [Credits] to place up to 2 advancement counters"
+                  :prompt "How many advancement counters do you want to place?"
                   :choices (req (map str (range (inc (min 2 (:credit corp))))))
                   :effect (req (let [c (str->int target)]
                                  (if (can-pay? state side (assoc eid :source card :source-type :subroutine) card (:title card) (->c :credit c))
@@ -2263,7 +2264,7 @@
                                                (system-msg state :corp (:msg async-result))
                                                (continue-ability
                                                  state side
-                                                 {:msg (msg "pay " c " [Credits] and place " (quantify c "advancement token")
+                                                 {:msg (msg "pay " c " [Credits] and place " (quantify c "advancement counter")
                                                             " on " (card-str state target))
                                                   :choices {:req (req (can-be-advanced? state target))}
                                                   :async true
@@ -3270,7 +3271,8 @@
                  (rez-an-ice {:cost-bonus -2})
                  (resolve-another-subroutine
                    #(has-subtype? % "Sentry")
-                   "Resolve subroutine on another rezzed Sentry")
+                   "Resolve subroutine on a rezzed Sentry"
+                   true)
                  (resolve-another-subroutine
                    #(has-subtype? % "Code Gate")
                    "Resolve subroutine on another rezzed Code Gate")]})
@@ -3440,8 +3442,8 @@
 
 (defcard "Otoroshi"
   {:subroutines [{:async true
-                  :label "Place 3 advancement tokens on an installed card"
-                  :msg "place 3 advancement tokens on an installed card"
+                  :label "Place 3 advancement counters on an installed card"
+                  :msg "place 3 advancement counters on an installed card"
                   :prompt "Choose an installed card in the root of a remote server"
                   :req (req (some (complement ice?) (all-installed state :corp)))
                   :choices {:card #(and (corp? %)
@@ -3942,7 +3944,7 @@
                                      (do (system-msg state :corp (str "uses " (:title card) " to gain 3 [Credits]"))
                                          (gain-credits state :corp eid 3))
                                      (effect-completed state side eid))))}
-                   {:label "Place 3 advancement tokens"
+                   {:label "Place 3 advancement counters"
                     :async true
                     :effect (effect
                               (continue-ability
@@ -3952,7 +3954,7 @@
                                              (= 1 unique-types))
                                     {:choices {:card installed?}
                                      :prompt "Choose an installed card"
-                                     :msg (msg "place 3 advancement tokens on "
+                                     :msg (msg "place 3 advancement counters on "
                                                (card-str state target))
                                      :async true
                                      :effect (effect (add-prop eid target :advance-counter 3 {:placed true}))}))

@@ -27,7 +27,7 @@
     [game.core.tags :refer [gain-tags]]
     [game.macros :refer [continue-ability effect msg req wait-for]]
     [game.utils :refer [enumerate-cards remove-once same-card? server-card to-keyword quantify]]
-    [jinteki.utils :refer [other-side]]))
+    [jinteki.utils :refer [faction-label other-side]]))
 
 (defn combine-abilities
   "Combines two or more abilities to a single one. Labels are joined together with a period between parts."
@@ -518,6 +518,22 @@
    :effect (req (trash state :runner eid card {:cause :purge
                                                :cause-card card}))})
 
+(defn scry
+  "Looks at the top QUANT cards of target-side's deck. Completes an eid."
+  [state side eid card target-side quant]
+  (let [target-cards (take quant (get-in @state [target-side :deck]))
+        zone-name (if (= :corp target-side) "R&D" "the stack")]
+    (resolve-ability
+      state side eid
+      {:player side
+       :waiting-prompt true
+       :req (req (seq target-cards))
+       :choices ["OK"]
+       :prompt (if (= 1 (count target-cards))
+                 (msg "the top card of " zone-name " is " (:title (first target-cards)))
+                 (msg "the top " (quantify quant "card") " of " zone-name " are (top->bottom): " (enumerate-cards target-cards)))}
+      card nil)))
+
 (defn with-revealed-hand
   "Resolves an ability while a player has their hand revealed (so you can click cards in their hand)
   You can set the side that triggers the reveal (event-side) and if it displays as a forced reveal
@@ -554,6 +570,10 @@
                                  (when-not was-open? (conceal-hand state target-side))
                                  (unregister-ev-callback)
                                  (effect-completed state side eid)))))})))
+
+(defn make-icon
+  [text card]
+  [text (:cid card) (faction-label card)])
 
 (defmacro defcard
   "Define a card to be returned from card-def. The definition consists of the

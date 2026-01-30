@@ -152,6 +152,7 @@ card-type_name = {$type ->
     [program] Program
     [resource] Resource
     [upgrade] Upgrade
+    [rules-insert] Rules Insert
     *[unknown] Unknown card type ({$type})
 }
 
@@ -484,6 +485,7 @@ format_name = {$format ->
     [core] Core
     [eternal] Eternal
     [preconstructed] Preconstructed
+    [quick-draft] Quick Draft
     [socr] SOCR
     [standard] Standard
     [startup] Startup
@@ -768,7 +770,10 @@ game_win-flatlined = {$winner} ({$side}) wins by flatline on turn {$turn}
 
 game_win-other = {$winner} ({$side}) wins by {$reason} on turn {$turn}
 
-game_win-points = {$winner} ({$side}) wins by scoring agenda points on turn {$turn}
+game_win-points = {$winner} ({$side}) wins by {$side ->
+    [runner] stealing
+    *[other] scoring
+} agenda points on turn {$turn}
 
 ingame-settings_alt-art = Alt arts
 
@@ -1444,6 +1449,7 @@ set_name = {$name ->
     [red-sand-cycle] Red Sand Cycle
     [reign-and-reverie] Reign and Reverie
     [revised-core-set] Revised Core Set
+    [rules] Rules Inserts
     [salsette-island] Salsette Island
     [salvaged-memories] Salvaged Memories
     [sansan-cycle] SanSan Cycle
@@ -1473,6 +1479,7 @@ set_name = {$name ->
     [uprising] Uprising
     [uprising-booster-pack] Uprising Booster Pack
     [upstalk] Upstalk
+    [vantage-point] Vantage Point
     [what-lies-ahead] What Lies Ahead
     [whispers-in-nalubaale] Whispers in Nalubaale
     [world-champion-2015] World Champion 2015

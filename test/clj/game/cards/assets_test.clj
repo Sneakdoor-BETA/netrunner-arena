@@ -1969,16 +1969,13 @@
         (rez state :corp ebc)
         (take-credits state :runner)
         (is (:corp-phase-12 @state) "Corp in Step 1.2")
-        (card-ability state :corp ebc 0)
-        (click-card state :corp eve)
-        (is (= 2 (:credit (get-corp))) "EBC saved 1 credit on the rez of Eve")
-        (is (= 16 (get-counters (refresh eve) :credit)))
-        (end-phase-12 state :corp)
-        (is (= 2 (:credit (get-corp))) "Corp did not gain credits from Eve")
+        (click-card state :corp "Eve Campaign")
+        (is (= 2 (:credit (get-corp))) "EBC saved 1 credit on the rez of Eve, Corp did not gain credits from Eve")
         (is (= 16 (get-counters (refresh eve) :credit)) "Did not take counters from Eve")
         (take-credits state :corp)
         (take-credits state :runner)
-        (is (not (:corp-phase-12 @state)) "With nothing to rez, EBC does not trigger Step 1.2")
+        (click-prompt state :corp "Executive Boot Camp")
+        (is (not (:corp-phase-12 @state)) "NCIGS fizzles With nothing to facedown, EBC does not trigger Step 1.2")
         (is (= 14 (get-counters (refresh eve) :credit)) "Took counters from Eve"))))
 
 (deftest executive-boot-camp-works-with-ice-that-has-alternate-rez-costs
@@ -1997,8 +1994,6 @@
         (is (= 9 (:credit (get-corp))) "Corp ends turn with 9 credits")
         (take-credits state :runner)
         (is (not (rezzed? (refresh tith))) "Tithonium not rezzed")
-        (is (:corp-phase-12 @state) "Corp in Step 1.2")
-        (card-ability state :corp ebc 0)
         (click-card state :corp tith)
         (click-prompt state :corp "No")
         (is (and (:installed (refresh tith)) (rezzed? (refresh tith))) "Rezzed Tithonium")
@@ -2019,19 +2014,15 @@
         (rez state :corp ebc)
         (rez state :corp mum)
         (take-credits state :runner)
-        (is (:corp-phase-12 @state) "Corp in Step 1.2")
-        (card-ability state :corp ebc 0)
-        (click-card state :corp eve)
+        (click-card state :corp "Eve Campaign")
         (dotimes [_ 2]
           (click-card state :corp mum))
         (is (= 2 (:credit (get-corp))) "EBC + Mumba saved 3 credit on the rez of Eve")
-        (is (= 16 (get-counters (refresh eve) :credit)))
-        (end-phase-12 state :corp)
-        (is (= 2 (:credit (get-corp))) "Corp did not gain credits from Eve")
         (is (= 16 (get-counters (refresh eve) :credit)) "Did not take counters from Eve")
         (take-credits state :corp)
         (take-credits state :runner)
-        (is (not (:corp-phase-12 @state)) "With nothing to rez, EBC does not trigger Step 1.2")
+        (click-prompt state :corp "Executive Boot Camp")
+        (is (not (:corp-phase-12 @state)) "NCIGS fizzles With nothing to facedown, EBC does not trigger Step 1.2")
         (is (= 14 (get-counters (refresh eve) :credit)) "Took counters from Eve"))))
 
 (deftest executive-search-firm
@@ -3261,7 +3252,7 @@
         (is (= 3 (:agenda-point (get-corp))) "Gained 3 agenda points")
         (take-credits state :corp)
         (run-empty-server state "HQ")
-        (is (= "Choose a card that can be advanced to place 1 advancement token on" (:msg (prompt-map :corp))) "Puppet Master event fired"))))
+        (is (= "Choose a card that can be advanced to place 1 advancement counter on" (:msg (prompt-map :corp))) "Puppet Master event fired"))))
 
 (deftest lakshmi-smartfabrics
   ;; Lakshmi Smartfabrics - Gain power counter when rezzing a card; use counters to protect agenda in HQ
@@ -3410,11 +3401,11 @@
     (play-from-hand state :runner "Daily Casts")
     (rez state :corp (get-content state :remote1 0))
     (click-card state :corp "Daily Casts")
-    (is (:icon (refresh (get-resource state 0))) "Daily Cast has an icon")
+    (is (= (card-icons state (get-resource state 0)) ["MZ"]) "Daily Cast has an icon")
     (play-from-hand state :runner "Cupellation")
     (run-empty-server state :remote1)
     (click-prompt state :runner "[Cupellation] 1 [Credits]: Host card")
-    (is (not (:icon (refresh (get-resource state 0)))) "Daily Cast does not have an icon anymore")))
+    (is (not (card-icons state (get-resource state 0))) "Daily Cast does not have an icon anymore")))
 
 (deftest malia-z0l0k4
   ;; Malia Z0L0K4 - blank an installed non-virtual runner resource
@@ -3432,12 +3423,12 @@
       (let [N (:credit (get-runner))]
         (rez state :corp malia1)
         (click-card state :corp (get-resource state 0))
-        (is (:icon (refresh (get-resource state 0))) "Daily Cast has an icon")
+        (is (has-icon? state (refresh (get-resource state 0)) "MZ") "Daily Cast has an icon")
         (take-credits state :corp)
         (is (= N (:credit (get-runner))) "Daily casts did not trigger when blanked"))
       (take-credits state :runner)
       (derez state :corp (refresh malia1))
-      (is (nil? (:icon (refresh (get-resource state 0)))))
+      (is (no-icons? state (get-resource state 0)))
       (let [N (:credit (get-runner))]
         (take-credits state :corp)
         (is (= (+ N 2) (:credit (get-runner))) "Daily casts triggers again when unblanked"))
@@ -5701,6 +5692,37 @@
     (is (= nil (:reason @state)) "no win happened yet")
     (is (not (= :corp (:winner @state))) "Corp doesn't win")))
 
+(deftest synchrocyclotron-test-humanoid-resources-test
+  (do-game
+    (new-game {:corp {:hand ["Humanoid Resources" "Synchrocyclotron" "Consulting Visit"]
+                      :deck [(qty "Beanstalk Royalties" 4)]
+                      :credits 20}})
+    (play-from-hand state :corp "Synchrocyclotron" "New remote")
+    (rez state :corp (get-content state :remote1 0))
+    (core/gain state :corp :click 2)
+    (play-from-hand state :corp "Humanoid Resources" "New remote")
+    (rez state :corp (get-content state :remote2 0))
+    (card-ability state :corp (get-content state :remote2 0) 0)
+    (click-prompt state :corp "Done")
+    (click-prompt state :corp "Consulting Visit")
+    (click-prompt state :corp "Beanstalk Royalties")))
+
+(deftest synchrocyclotron-workds-only-once-test
+  (do-game
+    (new-game {:corp {:hand ["Synchrocyclotron" "Consulting Visit"]
+                      :deck ["Consulting Visit" "Beanstalk Royalties"]
+                      :credits 18}})
+    (play-from-hand state :corp "Synchrocyclotron" "New remote")
+    (rez state :corp (get-content state :remote1 0))
+    (is (changed? [(:click (get-corp)) -1]
+          (play-from-hand state :corp "Consulting Visit"))
+        "Not asked to pay an empty cost")
+    (is (changed? [(:click (get-corp)) -1]
+          (click-prompt state :corp "Consulting Visit")
+          (click-prompt state :corp "Yes"))
+        "Choose to pay the additional click cost")
+    (is (= ["Beanstalk Royalties" "Cancel"] (prompt-titles :corp)) "Only beanstalk playable")))
+
 (deftest synth-dna-modification
   ;; Synth DNA Modification
   (do-game
@@ -6230,7 +6252,7 @@
     (rez state :corp (get-ice state :remote1 0))
     (rez state :corp (get-content state :remote1 0))
     (click-card state :corp "Eli 1.0")
-    (is (:icon (refresh (get-ice state :remote1 0))) "Eli 1.0 has an icon")
+    (is (has-icon? state (get-ice state :remote1 0) "TMB") "Eli 1.0 has an icon")
     (take-credits state :corp)
     (play-from-hand state :runner "Corroder")
     (run-on state :remote1)
@@ -6257,7 +6279,7 @@
       (click-prompt state :runner "End the run")
       (is (empty? (remove :broken (:subroutines (refresh ice)))) "No subs broken")
       (derez state :corp (get-content state :remote1 0))
-      (is (nil? (:icon (refresh ice)))))))
+      (is (no-icons? state (get-ice state :remote1 0)) "Icon gone"))))
 
 (deftest trieste-model-bioroids-odd-breakers
   ;; savant/etc utae, and any other cards where issues pop up

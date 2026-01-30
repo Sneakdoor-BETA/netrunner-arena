@@ -14,7 +14,7 @@
    [game.core.cost-fns :refer [install-cost rez-cost]]
    [game.core.costs :refer [total-available-credits]]
    [game.core.damage :refer [damage]]
-   [game.core.def-helpers :refer [all-cards-in-hand* in-hand*? breach-access-bonus defcard draw-loud offer-jack-out play-tiered-sfx run-server-ability trash-on-empty trash-on-purge get-x-fn rfg-on-empty tutor-abi]]
+   [game.core.def-helpers :refer [all-cards-in-hand* in-hand*? breach-access-bonus defcard draw-loud offer-jack-out play-tiered-sfx run-server-ability trash-on-empty trash-on-purge get-x-fn rfg-on-empty tutor-abi make-icon]]
    [game.core.drawing :refer [draw]]
    [game.core.effects :refer [any-effects is-disabled-reg? register-lingering-effect unregister-effects-for-card update-disabled-cards]]
    [game.core.eid :refer [effect-completed make-eid]]
@@ -45,7 +45,7 @@
    [game.core.payment :refer [build-cost-label can-pay? cost-target cost-value ->c value]]
    [game.core.prevention :refer [preventable? prevent-damage prevent-end-run prevent-up-to-n-damage prevent-trash-installed-by-type]]
    [game.core.prompts :refer [cancellable]]
-   [game.core.props :refer [add-counter add-icon remove-icon]]
+   [game.core.props :refer [add-counter]]
    [game.core.revealing :refer [reveal]]
    [game.core.rezzing :refer [derez get-rez-cost rez]]
    [game.core.runs :refer [active-encounter? bypass-ice continue end-run
@@ -811,6 +811,7 @@
    :events [{:event :encounter-ice
              :automatic :pre-bypass
              :req (req (same-card? (:ice context) (:host card)))
+             :interactive (req true)
              :async true
              :effect (req (if (pos? (ice-strength state side (:ice context)))
                             (do (system-msg state side (str "uses " (:title card) " to place 1 virus counter on itself"))
@@ -983,6 +984,16 @@
 (defcard "Corroder"
   (auto-icebreaker {:abilities [(break-sub 1 1 "Barrier")
                                 (strength-pump 1 1)]}))
+
+(defcard "Corsair"
+  (auto-icebreaker {:abilities [(break-sub 1 1 "Barrier")
+                                {:label "Give -3 strength to encountered Barrier"
+                                 :req (req (and (active-encounter? state)
+                                                (has-subtype? current-ice "Barrier")))
+                                 :keep-menu-open true
+                                 :msg (msg "give -3 strength to " (:title current-ice))
+                                 :effect (effect (pump-ice current-ice -3))
+                                 :cost [(->c :credit 1 {:stealth :all-stealth})]}]}))
 
 (defcard "Cradle"
   (auto-icebreaker {:abilities [(break-sub 2 0 "Code Gate")]
@@ -1421,33 +1432,32 @@
 
 (defcard "Femme Fatale"
   (auto-icebreaker
-    {:on-install
-     {:prompt "Choose a piece of ice to target for bypassing"
-      :choices {:card ice?}
-      :effect (req (let [ice target]
-                     (add-icon state side card ice "FF" (faction-label card))
-                     (system-msg state side
-                                 (str "selects " (card-str state ice)
-                                      " for " (:title card) "'s bypass ability"))
-                     (register-events
-                       state side card
-                       [{:event :encounter-ice
-                         :skippable true
-                         :interactive (req true)
-                         :optional
-                         {:req (req (and (same-card? ice (:ice context))
-                                         (can-pay? state :runner eid (:ice context) nil [(->c :credit (count (:subroutines (get-card state ice))))])))
-                          :prompt (msg "Pay " (count (:subroutines (get-card state ice)))
-                                       " [Credits] to bypass " (:title ice) "?")
-                          :yes-ability {:async true
-                                        :effect (req (wait-for
-                                                       (pay state side (make-eid state eid) card [(->c :credit (count (:subroutines (get-card state ice))))])
-                                                       (let [payment-str (:msg async-result)
-                                                             msg-ab {:msg (str "bypass " (:title (:ice context)))}]
-                                                         (print-msg state side msg-ab card nil payment-str))
-                                                       (bypass-ice state)
-                                                       (effect-completed state side eid)))}}}])))}
-     :leave-play (effect (remove-icon card))
+    {:on-install {:prompt "Choose a piece of ice to target for bypassing"
+                  :choices {:card ice?}
+                  :msg (msg "target " (card-str state target))
+                  :effect (req (update! state side (assoc-in (get-card state card) [:special :femme] target)))}
+     :static-abilities [{:type :icon
+                         :req (req (same-card? target (get-in card [:special :femme])))
+                         :value (req (make-icon "FF" card))}]
+     :events [{:event :encounter-ice
+               :skippable true
+               :interactive (req true)
+               :change-in-game-state {:silent true
+                                      :req (req (let [ice (get-card state (:ice context))]
+                                                  (can-pay? state :runner eid card nil [(->c :credit (count (:subroutines ice)))])))}
+               :req (req (same-card? (get-in card [:special :femme]) (:ice context)))
+               :async true
+               ;; TODO - can we make cost a (potential) 5-fn?
+               :effect (req (let [ice (:ice context)
+                                  c (count (:subroutines (get-card state ice)))]
+                              (continue-ability
+                                state side
+                                {:optional
+                                 {:prompt (msg "Pay " c " [Credits] to bypass " (:title ice) "?")
+                                  :yes-ability {:cost [(->c :credit c)]
+                                                :msg (msg "bypass " (:title (:ice context)))
+                                                :effect (req (bypass-ice state))}}}
+                                card targets)))}]
      :abilities [(break-sub 1 1 "Sentry")
                  (strength-pump 2 1)]}))
 
@@ -1916,6 +1926,29 @@
                     [(break-sub 2 0 "Barrier")
                      (strength-pump 3 6)]))
 
+(defcard "Lampades"
+  {:interactions
+   {:access-ability
+    {:async true
+     :trash? true
+     :once :per-turn
+     :label "Trash card"
+     :req (req (and (not (:disabled card))
+                    (not (agenda? target))
+                    (not (in-discard? target))
+                    (can-pay? state side eid card [(->c :power 1) (->c :credit (:cost target 0) {:stealth :all-stealth})])))
+     :waiting-prompt true
+     :effect (req (let [accessed-card target
+                        play-or-rez (:cost target)]
+                    (continue-ability
+                      state side
+                      {:async true
+                       :cost [(->c :power 1) (->c :credit (:cost accessed-card 0) {:stealth :all-stealth})]
+                       :msg (msg "trash " (:title accessed-card))
+                       :effect (effect (trash eid (assoc accessed-card :seen true) {:accessed true}))}
+                      card nil)))}}
+   :data {:counter {:power 3}}})
+
 (defcard "Lamprey"
   {:events [{:event :successful-run
              :automatic :drain-credits
@@ -2056,10 +2089,11 @@
              :skippable true
              :interactive (req true)
              :ability-name "Malandragem (Power counter)"
+             :change-in-game-state {:silent true
+                                    :req (req (>= 3 (ice-strength state side current-ice)))}
              :optional {:prompt "Remove 1 power counter to bypass encountered ice?"
                         :once :per-turn
-                        :req (req (and (>= 3 (ice-strength state side current-ice))
-                                       (<= 1 (get-counters (get-card state card) :power))))
+                        :req (req (<= 1 (get-counters (get-card state card) :power)))
                         :yes-ability {:cost [(->c :power 1)]
                                       :msg (msg "bypass " (card-str state current-ice))
                                       :effect (req (bypass-ice state))}}}]})

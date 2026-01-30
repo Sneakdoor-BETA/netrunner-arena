@@ -21,7 +21,7 @@
    [game.core.cost-fns :refer [play-cost]]
    [game.core.damage :refer [damage]]
    [game.core.def-helpers :refer [corp-install-up-to-n-cards corp-recur corp-rez-toast defcard do-meat-damage do-net-damage draw-abi gain-credits-ability give-tags
-                                  reorder-choice spend-credits take-credits take-n-credits-ability trash-on-empty get-x-fn with-revealed-hand]]
+                                  make-icon reorder-choice spend-credits take-credits take-n-credits-ability trash-on-empty get-x-fn with-revealed-hand]]
    [game.core.drawing :refer [draw first-time-draw-bonus max-draw
                               remaining-draws]]
    [game.core.effects :refer [is-disabled-reg? register-lingering-effect update-disabled-cards]]
@@ -44,7 +44,7 @@
    [game.core.payment :refer [can-pay? cost-value ->c]]
    [game.core.play-instants :refer [can-play-instant? play-instant]]
    [game.core.prompts :refer [cancellable]]
-   [game.core.props :refer [add-counter add-icon add-prop remove-icon set-prop]]
+   [game.core.props :refer [add-counter add-prop set-prop]]
    [game.core.prevention :refer [damage-name preventable? prevent-bad-publicity prevent-damage prevent-expose]]
    [game.core.revealing :refer [reveal]]
    [game.core.rezzing :refer [can-pay-to-rez? derez rez]]
@@ -230,7 +230,7 @@
                        :all true}
              :effect (effect (complete-with-result eid targets))})]
     {:advanceable :always
-     :abilities [{:label "Swap 1 card in HQ and Archives for each advancement token"
+     :abilities [{:label "Swap 1 card in HQ and Archives for each advancement counter"
                   :cost [(->c :trash-can)]
                   :msg (msg "swap "
                          (quantify (max (count (:discard corp))
@@ -274,9 +274,9 @@
      :abilities [(set-autoresolve :auto-fire "Amani Senai")]}))
 
 (defcard "Anson Rose"
-  (let [ability {:label "Place 1 advancement token (start of turn)"
+  (let [ability {:label "Place 1 advancement counter (start of turn)"
                  :once :per-turn
-                 :msg "place 1 advancement token on itself"
+                 :msg "place 1 advancement counter on itself"
                  :async true
                  :effect (effect (add-prop eid card :advance-counter 1 {:placed true}))}]
     {:derezzed-events [corp-rez-toast]
@@ -292,9 +292,9 @@
                                 state side
                                 {:optional
                                  {:waiting-prompt true
-                                  :prompt (str "Move advancement tokens to " icename "?")
+                                  :prompt (str "Move advancement counters to " icename "?")
                                   :yes-ability
-                                  {:prompt "How many advancement tokens do you want to move?"
+                                  {:prompt "How many advancement counters do you want to move?"
                                    :choices {:number (req (get-counters card :advancement))}
                                    :async true
                                    :effect (req (wait-for
@@ -330,8 +330,8 @@
      :abilities [{:req (req (and (:corp-phase-12 @state)
                                  (counters-available? state)))
                   :once :per-turn
-                  :label "Remove an advancement token (start of turn)"
-                  :prompt "Choose a card to remove an advancement token from"
+                  :label "Remove an advancement counter (start of turn)"
+                  :prompt "Choose a card to remove an advancement counter from"
                   :choices {:card #(and (pos? (get-counters % :advancement))
                                      (installed? %))}
                   :async true
@@ -784,7 +784,7 @@
                                :choices {:req (req (and (ice? target)
                                                         (not (same-card? from-ice target))
                                                         (can-be-advanced? state target)))}
-                               :msg (msg "move an advancement token from "
+                               :msg (msg "move an advancement counter from "
                                          (card-str state from-ice)
                                          " to "
                                          (card-str state target))
@@ -1008,12 +1008,12 @@
                                            (in-server? %))
                                      (all-installed state :corp)))}
    :abilities [{:cost [(->c :credit 1)]
-                :label "Place 1 advancement token on a card that can be advanced in a server"
+                :label "Place 1 advancement counter on a card that can be advanced in a server"
                 :choices {:req (req (and (can-be-advanced? state target)
                                          (installed? target)
                                          (in-server? target)))} ; should be *in* a server
                 :once :per-turn
-                :msg (msg "place 1 advancement token on " (card-str state target))
+                :msg (msg "place 1 advancement counter on " (card-str state target))
                 :async true
                 :effect (effect (add-prop eid target :advance-counter 1 {:placed true}))}]})
 
@@ -1096,25 +1096,19 @@
 
 (defcard "Executive Boot Camp"
   {:derezzed-events [corp-rez-toast]
-   :flags {:corp-phase-12 (req (some #(not (rezzed? %)) (all-installed state :corp)))}
-   ; A card rezzed by Executive Bootcamp is ineligible to receive the turn-begins event for this turn.
-   :suppress [{:event :corp-turn-begins
-               :req (req (= (:cid target) (:ebc-rezzed (get-card state card))))}]
-   :events [{:event :corp-turn-ends
-             :silent (req true)
-             :req (req (:ebc-rezzed card))
-             :effect (effect (update! (dissoc card :ebc-rezzed)))}]
-   :abilities [{:async true
-                :once :per-turn
-                :choices {:req (req (and (corp? target)
-                                         (not (rezzed? target))
-                                         (can-pay-to-rez? state side (assoc eid :source card)
-                                                          target {:cost-bonus -1})))}
-                :label "Rez a card, lowering the cost by 1 [Credits] (start of turn)"
-                :effect (req (wait-for (rez state side target {:no-warning true :cost-bonus -1})
-                                       (update! state side (assoc card :ebc-rezzed (:cid target)))
-                                       (effect-completed state side eid)))}
-               {:prompt "Choose an asset to reveal and add to HQ"
+   :events [{:event :corp-turn-begins
+             :interactive (req true)
+             :prompt "Rez a card, paying 1 [Credit] less"
+             :waiting-prompt true
+             :choices {:req (req (and (corp? target)
+                                      (installed? target)
+                                      (not (rezzed? target))
+                                      (can-pay-to-rez? state side eid target {:cost-bonus -1})))}
+             :change-in-game-state {:req (req (some #(not (rezzed? %)) (all-installed state :corp)))
+                                    :silent true}
+             :async true
+             :effect (req (rez state side eid target {:cost-bonus -1 :no-warning true}))}]
+   :abilities [{:prompt "Choose an asset to reveal and add to HQ"
                 :msg (msg "reveal " (:title target) ", add it to HQ, and shuffle R&D")
                 :choices (req (cancellable (filter asset?
                                                    (:deck corp))
@@ -1143,7 +1137,7 @@
 
 (defcard "Exposé"
   {:advanceable :always
-   :abilities [{:label "Remove 1 bad publicity for each advancement token on Exposé"
+   :abilities [{:label "Remove 1 bad publicity for each advancement counter on Exposé"
                 :msg (msg "remove " (get-counters card :advancement) " bad publicity")
                 :cost [(->c :trash-can)]
                 :effect (effect (lose-bad-publicity (get-counters card :advancement)))}]})
@@ -1326,7 +1320,7 @@
 (defcard "GRNDL Refinery"
   {:advanceable :always
    :abilities [{:action true
-                :label "Gain 4 [Credits] for each advancement token on GRNDL Refinery"
+                :label "Gain 4 [Credits] for each advancement counter on GRNDL Refinery"
                 :cost [(->c :click 1) (->c :trash-can)]
                 :msg (msg "gain " (* 4 (get-counters card :advancement)) " [Credits]")
                 :async true
@@ -1851,8 +1845,7 @@
 (defcard "Malia Z0L0K4"
   (let [unmark
         (req (when-let [malia-target (get-in card [:special :malia-target])]
-               (update! state side (assoc-in (get-card state card) [:special :malia-target] nil))
-               (remove-icon state :runner card (get-card state malia-target)))
+               (update! state side (assoc-in (get-card state card) [:special :malia-target] nil)))
              (update-disabled-cards state)
              (trigger-event-sync state nil eid :disabled-cards-updated))]
     {:on-rez {:msg (msg "blank the text box of " (card-str state target))
@@ -1860,12 +1853,19 @@
                                     (installed? %)
                                     (resource? %)
                                     (not (has-subtype? % "Virtual")))}
-              :effect (req (add-icon state side card target "MZ" (faction-label card))
-                           (update! state side (assoc-in (get-card state card) [:special :malia-target] target))
+              :effect (req (update! state side (assoc-in (get-card state card) [:special :malia-target] target))
                            (update-disabled-cards state))}
      :leave-play unmark
      :move-zone unmark
-     :static-abilities [{:type :disable-card
+     :static-abilities [{:type :icon
+                         :req (req
+                                (let [malia-target (get-in (get-card state card) [:special :malia-target])]
+                                  (or (same-card? target malia-target)
+                                      (and (same-card? (:host target) malia-target)
+                                           (= (:title malia-target) "DJ Fenris")
+                                           (= (:type target) "Fake-Identity")))))
+                        :value (req (make-icon "MZ" card))}
+                        {:type :disable-card
                          :req (req
                                 (let [malia-target (get-in (get-card state card) [:special :malia-target])]
                                   (or (same-card? target malia-target)
@@ -2056,10 +2056,10 @@
                 :keep-menu-open :while-advancement-tokens-left
                 :req (req (and (pos? (get-counters card :advancement))
                                (not-empty (all-active-installed state :corp))))
-                :label "Move an advancement token to a faceup card"
+                :label "Move an advancement counter to a faceup card"
                 :prompt "Choose a faceup card"
                 :choices {:card faceup?}
-                :msg (msg "move an advancement token to " (card-str state target))
+                :msg (msg "move an advancement counter to " (card-str state target))
                 :async true
                 :effect (req (wait-for (add-prop state side card :advance-counter -1 {:placed true})
                                        (add-prop state side eid target :advance-counter 1 {:placed true})))}]})
@@ -2296,9 +2296,9 @@
   {:abilities [{:action true
                 :cost [(->c :click 1)]
                 :keep-menu-open :while-clicks-left
-                :label "Place 1 advancement token on a card"
+                :label "Place 1 advancement counter on a card"
                 :choices {:card installed?}
-                :msg (msg "place 1 advancement token on " (card-str state target))
+                :msg (msg "place 1 advancement counter on " (card-str state target))
                 :async true
                 :effect (req (wait-for
                                (add-prop state :corp target :advance-counter 1 {:placed true})
@@ -2678,13 +2678,13 @@
   {:events [{:event :damage
              :req (req (and (pos? (:amount context))
                             (= :meat (:damage-type context))))
-             :msg "place 1 advancement token on itself"
+             :msg "place 1 advancement counter on itself"
              :async true
              :effect (effect (add-counter eid card :advancement 1 {:placed true}))}]
-   :abilities [{:label "Move hosted advancement tokens to another card"
+   :abilities [{:label "Move hosted advancement counters to another card"
                 :cost [(->c :trash-can)]
                 :async true
-                :prompt "How many hosted advancement tokens do you want to move?"
+                :prompt "How many hosted advancement counters do you want to move?"
                 :choices {:number (req (get-counters card :advancement))
                           :default (req (get-counters card :advancement))}
                 :effect (req (let [num-counters target]
@@ -2693,7 +2693,7 @@
                                  {:async true
                                   :prompt "Choose a card that can be advanced"
                                   :choices {:req (req (can-be-advanced? state target))}
-                                  :effect (effect (system-msg (str "uses " (:title card) " to move " (quantify num-counters "hosted advancement token") " to " (card-str state target)))
+                                  :effect (effect (system-msg (str "uses " (:title card) " to move " (quantify num-counters "hosted advancement counter") " to " (card-str state target)))
                                                   (add-counter eid target :advancement num-counters {:placed true}))}
                                  card nil)))}]})
 
@@ -2963,9 +2963,9 @@
    :poison true
    :on-access {:optional
                {:waiting-prompt true
-                :prompt "Place 1 advancement token on a card that can be advanced?"
-                :yes-ability {:msg (msg "place 1 advancement token on " (card-str state target))
-                              :prompt "Choose a card to place an advancement token on"
+                :prompt "Place 1 advancement counter on a card that can be advanced?"
+                :yes-ability {:msg (msg "place 1 advancement counter on " (card-str state target))
+                              :prompt "Choose a card to place an advancement counter on"
                               :choices {:req (req (can-be-advanced? state target))}
                               :async true
                               :effect (effect (add-prop eid target :advance-counter 1 {:placed true}))}}}})
@@ -3020,6 +3020,13 @@
                             (:borehole-valid (:special card))))
              :msg "win the game"
              :effect (req (win state :corp (:title card)))}]})
+
+(defcard "Synchrocyclotron"
+  {:static-abilities [{:type :play-additional-cost
+                       :req (req (and (corp? target)
+                                      (no-event? state side :play-operation #(has-subtype? (:card (first %)) "Double"))
+                                      (has-subtype? target "Double")))
+                       :value [(->c :click -1)]}]})
 
 (defcard "Sundew"
   {:events [{:event :runner-spent-click
@@ -3140,7 +3147,7 @@
 
 (defcard "Test Ground"
   {:advanceable :always
-   :abilities [{:label "Derez 1 card for each advancement token"
+   :abilities [{:label "Derez 1 card for each advancement counter"
                 :req (req (pos? (get-counters card :advancement)))
                 :cost [(->c :trash-can)]
                 :async true
@@ -3232,10 +3239,11 @@
             :choices {:card #(and (ice? %)
                                   (rezzed? %)
                                   (has-subtype? % "Bioroid"))}
-            :effect (effect (add-icon card target "TMB" (faction-label card))
-                            (update! (assoc-in (get-card state card) [:special :trieste-target] target)))}
-   :leave-play (effect (remove-icon card))
-   :static-abilities [{:type :prevent-paid-ability
+            :effect (effect (update! (assoc-in (get-card state card) [:special :trieste-target] target)))}
+   :static-abilities [{:type :icon
+                       :req (req (same-card? target (get-in card [:special :trieste-target])))
+                       :value (req (make-icon "TMB" card))}
+                      {:type :prevent-paid-ability
                        :req (req
                               (let [[break-card break-ability] targets]
                                 (and
