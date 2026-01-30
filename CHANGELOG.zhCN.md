@@ -2,9 +2,18 @@
 
 本更新日志只用于记录此分支版本上特有的（主要是针对国内玩家）修改。对上游版本更新的定期同步不会体现在本文档中。
 
+## v100018
+
+* 修复 jnet-wrapped 中的若干问题。
+* 添加深网积分赛25S4纪念牌背。
+
+## v100017
+
+* 添加 jnet-wrapped 年度报告功能（来自 [The Maker's Eye](https://makers-eye.com/)，作者 [Miguel de los Reyes](https://github.com/migueldlr)）。
+
 ## v100016
 
-* 添加 stats-dashboard 数据分析功能（来自 [JNet Stats Lab](https://jnet-stats.nro.run/)）。
+* 添加 stats-dashboard 数据分析功能（来自 [JNet Stats Lab](https://jnet-stats.nro.run/)，作者 [Lucille Blumire](https://github.com/LLBlumire)）。
 
 ## v100014
 

@@ -25,7 +25,7 @@
    [game.core.def-helpers :refer [all-cards-in-hand* in-hand*? breach-access-bonus defcard draw-abi offer-jack-out
                                   reorder-choice spend-credits take-credits take-n-credits-ability take-all-credits-ability trash-on-empty do-net-damage
                                   play-tiered-sfx
-                                  run-any-server-ability run-server-ability]]
+                                  run-any-server-ability run-server-ability make-icon]]
    [game.core.drawing :refer [draw click-draw-bonus]]
    [game.core.effects :refer [register-lingering-effect update-disabled-cards]]
    [game.core.eid :refer [complete-with-result effect-completed make-eid]]
@@ -62,7 +62,7 @@
    [game.core.play-instants :refer [can-play-instant? play-instant]]
    [game.core.prevention :refer [damage-name prevent-damage preventable? prevent-encounter prevent-tag prevent-trash-installed-by-type prevent-up-to-n-tags prevent-up-to-n-damage]]
    [game.core.prompts :refer [cancellable]]
-   [game.core.props :refer [add-counter add-icon remove-icon]]
+   [game.core.props :refer [add-counter]]
    [game.core.revealing :refer [reveal reveal-loud]]
    [game.core.rezzing :refer [derez rez]]
    [game.core.runs :refer [active-encounter? bypass-ice can-run-server? get-runnable-zones
@@ -1304,14 +1304,12 @@
              :msg (msg "make the text box of " (:title target) " blank for the remainder of the turn")
              :effect (req
                        (let [c target]
-                         (add-icon state side card target "DL" (faction-label card))
-                         (register-events
+                         (register-lingering-effect
                            state side card
-                           [{:event :post-runner-turn-ends
-                             :unregister-once-resolved true
-                             :effect (req (let [disabled-card (get-card state c)]
-                                            (remove-icon state side card (get-card state disabled-card))
-                                            (fake-checkpoint state)))}])
+                           {:type :icon
+                            :duration :end-of-turn
+                            :req (req (same-card? c target))
+                            :value (make-icon "DL" card)})
                          (register-lingering-effect
                            state side card
                            {:type :disable-card
@@ -3646,7 +3644,7 @@
     {:events [maybe-spend-2
               {:event :runner-install
                :once :per-turn
-               :msg "place 2 virus tokens on itself"
+               :msg "place 2 virus counters on itself"
                :req (req (has-subtype? (:card context) "Virus"))
                :async true
                :effect (effect (add-counter eid card :virus 2))}]}))
@@ -3738,7 +3736,7 @@
              :label (str "Shortcut: Bounce " name)
              :cost [(->c :click 1)]
              :keep-menu-open :while-clicks-left
-             :msg (msg "bounce off of " name " for a token (shortcut)")
+             :msg (msg "bounce off of " name " for a counter (shortcut)")
              :async true
              :effect (req (swap! state assoc-in [:runner :register :made-click-run] true)
                           (swap! state update-in [:runner :register :unsuccessful-run] conj server)
@@ -3911,6 +3909,32 @@
                 :effect (effect (trigger-event :searched-stack)
                                 (shuffle! :deck)
                                 (move target :hand))}]})
+
+(defcard "Underdome Irregulars"
+  {:events [{:event :runner-action-phase-ends
+             :interactive (req true)
+             :async true
+             :effect (req
+                       (continue-ability
+                         state side
+                         (if (no-event? state :corp :rez #(ice? (:card (first %))))
+                           {:msg "trash itself"
+                            :async true
+                            :effect (req (trash state side eid card))}
+                           (choose-one-helper
+                             {:event :runner-action-phase-ends
+                              :interactive (req true)}
+                             [{:option "Draw 2 cards"
+                               :ability {:change-in-game-state {:silent true :req (req (seq (get-in @state [:runner :deck])))}
+                                         :msg "draw 2 cards"
+                                         :async true
+                                         :effect (req (draw state side eid 2))}}
+                              {:option "Remove 1 tag"
+                               :ability {:change-in-game-state {:silent true :req (req tagged)}
+                                         :msg "remove 1 tag"
+                                         :async true
+                                         :effect (req (lose-tags state side eid 1))}}]))
+                         card nil))}]})
 
 (defcard "Underworld Contact"
   (let [ability {:label "Gain 1 [Credits] (start of turn)"

@@ -37,7 +37,8 @@ java -XX:-OmitStackTraceInFastThrow -jar target/netrunner-standalone.jar
 
 ## 第三方开源项目使用
 
-* [jnet-stats](https://github.com/multiaccess-studios/jnet-stats)
+* [multiaccess-studios/jnet-stats](https://github.com/multiaccess-studios/jnet-stats)
+* [migueldlr/makers-eye](https://github.com/migueldlr/makers-eye)
 
 ## 维护者
 
