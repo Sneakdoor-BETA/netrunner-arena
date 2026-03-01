@@ -566,6 +566,7 @@
    :during-run (some? (:run @state))
    :on-attacked-server (= (get-in @state [:run :server]) [(second (:zone ice))])
    :all-subs-broken (all-subs-broken? ice)
+   :was-zero-or-less-strength? (<= (get-strength ice) 0)
    :broken-subs broken-subs
    ;; enough info to backtrack and find breakers without bloating the gamestate
    ;; could just be the card itself if we don't care too much though
@@ -747,7 +748,7 @@
   "Updates an icebreaker's abilities with a pseudo-ability to trigger the
   auto-pump routine in core, IF we are encountering a rezzed ice with a subtype
   we can break."
-  {:silent (req true)
+  {:silent true
    :effect
    (req (let [abs (remove #(or (= (:dynamic %) :auto-pump)
                                (= (:dynamic %) :auto-pump-and-break))
