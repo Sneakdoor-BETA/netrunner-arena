@@ -19,6 +19,7 @@ pom.xml
 .eastwood
 .cache
 *.archive
+*.swp
 
 data/**
 !data/promos.edn

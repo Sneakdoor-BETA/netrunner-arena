@@ -59,11 +59,7 @@
     :cls "prizes"
     :route "/prizes"
     :show? #(or (:isadmin (:user %))
-                (:ismoderator (:user %)))}
-   {:title [:nav_features "Features"]
-    :cls "features"
-    :route "/features"
-    :show? #(:isadmin (:user %))}])
+                (:ismoderator (:user %)))}])
 
 (def history (Html5History.))
 
