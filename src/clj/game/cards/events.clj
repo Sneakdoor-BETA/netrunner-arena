@@ -663,7 +663,7 @@
     {:makes-run true
      :on-play (run-server-ability :archives)
      :events [{:event :breach-server
-               :req (req (= target :archives))
+               :req (req (= :archives (:server context)))
                :silent true
                :effect (req (let [ts (distinct (map :title (:discard corp)))]
                               (update! state side
@@ -1891,7 +1891,7 @@
    :events [{:event :breach-server
              :automatic :pre-breach
              :async true
-             :req (req (and (= target :archives)
+             :req (req (and (= :archives (:server context))
                             ;; don't prompt unless there's at least 1 rezzed piece of ice matching one in Archives
                             (not-empty (set/intersection
                                          (into #{} (map :title (filter ice? (:discard corp))))
@@ -3059,7 +3059,7 @@
                               (system-msg state :corp (str (if correct-guess " " " in")
                                                            "correctly guesses " (decapitalize target)))
                               (wait-for
-                                (trigger-event-simult state side :reveal-spent-credits nil nil spent)
+                                (trigger-event-simult state side :reveal-spent-credits nil {:runner-credits spent})
                                 (if correct-guess
                                   (effect-completed state side eid)
                                   (do (system-msg state :runner (str "gains " (* 2 spent) " [Credits]"))
@@ -3326,7 +3326,7 @@
                             (lose-credits state :runner (make-eid state eid) spent)
                             (system-msg state :runner (str "spends " spent " [Credit]"))
                             (system-msg state :corp (str " guesses " target " [Credit]"))
-                            (wait-for (trigger-event-simult state side :reveal-spent-credits nil nil spent)
+                            (wait-for (trigger-event-simult state side :reveal-spent-credits nil {:runner-credits spent})
                                       (if (not= spent (str->int target))
                                         (continue-ability state :runner (choose-ice) card nil)
                                         (effect-completed state side eid)))))})
@@ -3911,8 +3911,8 @@
 (defcard "Take a Dive"
   {:on-play (run-server-from-choices-ability ["HQ" "R&D"] {:rfg-instead-of-trashing true})
    :events [{:event :successful-run
-             :req (req (letfn [(valid-ctx? [[ctx]] (pos? (or (:subroutines-fired ctx) 0)))]
-                         (valid-ctx? [context])))
+             :req (req (and (#{:hq :rd} (target-server context))
+                            (pos? (or (:subroutines-fired context) 0))))
              :msg "force the Corp to take 1 Bad Publicity"
              :async true
              :effect (req (gain-bad-publicity state :corp eid 1 {:card card}))}]})
