@@ -16,7 +16,13 @@
 
 ```shell
 # 国服使用中文卡图
-lein fetch --no-card-images
+# 默认的更新数据命令
+# lein fetch --no-card-images
+
+# 由于国内服务器访问GitHub有连接问题
+# 可以使用以下命令
+# 通过本地仓库更新数据
+lein fetch --local {本地数据仓库路径} --no-card-images
 lein create-indexes
 npm ci
 npm run release
