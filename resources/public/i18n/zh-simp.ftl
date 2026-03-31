@@ -1290,6 +1290,7 @@ set_name = {$name ->
     [uprising] 起义
     [uprising-booster-pack] 起义推广包
     [upstalk] 上行之夜
+    [vantage-point] 制高点
     [what-lies-ahead] 前途未卜
     [whispers-in-nalubaale] 纳鲁巴勒低语
     [world-champion-2015] 世界冠军2015
