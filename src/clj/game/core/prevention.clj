@@ -16,7 +16,7 @@
    [game.core.say :refer [enforce-msg n-last-logs]]
    [game.core.to-string :refer [card-str]]
    [game.utils :refer [dissoc-in enumerate-str quantify]]
-   [game.macros :refer [msg req wait-for]]
+   [game.macros :refer [effect msg req wait-for]]
    [jinteki.utils :refer [other-side]]
    [taoensso.timbre :as timbre]))
 
@@ -164,7 +164,7 @@
   ;;   * Or if they do not, clicking the ability MUST act
   ;; The consequence of ignoring this is the potential for a silly player to pretend to act, do nothing, and flip priority
   (let [abi {:async true
-             :effect (req (swap! state assoc-in [:prevent key :priority-passes] 0)
+             :effect (effect (swap! state assoc-in [:prevent key :priority-passes] 0)
                           (swap! state update-in [:prevent key :uses (->> prevention :card :cid)] (fnil inc 0))
                           (resolve-ability state side eid (:ability prevention) card [(get-in @state [:prevent key])]))}]
     (resolve-ability
@@ -181,7 +181,7 @@
   {:option (or (:label prevention) (->> prevention :card :printed-title))
    :card (:card prevention)
    :ability {:async true
-             :effect (req (trigger-prevention state side eid key prevention))}})
+             :effect (effect (trigger-prevention state side eid key prevention))}})
 
 (defn- resolve-keyed-prevention-for-side
   [state side eid key {:keys [prompt waiting option data-type] :as args}]
@@ -212,7 +212,7 @@
                           (concat (mapv #(build-prevention-option % key) preventions)
                                   [(when-not (some :mandatory preventions)
                                      {:option option
-                                      :ability {:effect (req (swap! state assoc-in [:prevent key :passed] true))}})]))
+                                      :ability {:effect (effect (swap! state assoc-in [:prevent key :passed] true))}})]))
                         nil nil)
                       (resolve-keyed-prevention-for-side state side eid key args))))))))
 
@@ -247,24 +247,24 @@
      :type :ability
      :label label
      :ability {:req (req
-                      (and (seq (relevant state card))
+                      (seq (relevant state card))
                            (not (:unpreventable context))
                            (valid-context? context)
-                           (can-pay? state side eid card nil cost)))
+                           (can-pay? state side eid card nil cost))
                :async true
                :fake-cost cost
-               :effect (req
+               :effect (effect
                          (wait-for (resolve-ability
                                      state side
                                      (if (= 1 (count (relevant state card)))
                                        {:msg (msg "prevent " (->> (relevant state card) first :title) " from being trashed")
                                         :cost cost
-                                        :effect (req (swap! state assoc-in [:prevent :trash :remaining] []))}
+                                        :effect (effect (swap! state assoc-in [:prevent :trash :remaining] []))}
                                        {:prompt (str "Choose a " (enumerate-str (map str/lower-case types) "or") " to save from being trashed")
                                         :cost cost
-                                        :choices (req (relevant state card))
+                                        :choices (effect (relevant state card))
                                         :msg (msg "prevent " (:title target) " from being trashed")
-                                        :effect (req (swap! state update-in [:prevent :trash :remaining] (fn [s] (filterv #(not (same-card? (:card %) target)) s))))})
+                                        :effect (effect (swap! state update-in [:prevent :trash :remaining] (fn [s] (filterv #(not (same-card? (:card %) target)) s))))})
                                      card nil)
                                    (swap! state update-in [:prevent :trash :remaining] (fn [ctx] (filterv #(get-card state (:card %)) ctx)))
                                    (effect-completed state side eid)))}}))
@@ -369,16 +369,16 @@
   (letfn [(remainder [state] (get-in @state [:prevent (damage-key state) :remaining]))
           (max-to-avoid [state n] (if (= n :all) (remainder state) (min (remainder state) n)))]
     {:prompt (msg "Choose how much " (damage-name state) " damage prevent")
-     :req (req (and (preventable? state (damage-key state))
+     :req (req (preventable? state (damage-key state))
                     (or (not types)
-                        (contains? types (get-in @state [:prevent (damage-key state) :type])))))
-     :choices {:number (req (max-to-avoid state n))
-               :default (req (max-to-avoid state n))}
+                        (contains? types (get-in @state [:prevent (damage-key state) :type]))))
+     :choices {:number (effect (max-to-avoid state n))
+               :default (effect (max-to-avoid state n))}
      :async true
      :msg (msg "prevent " target " " (damage-name state) " damage")
-     :effect (req (prevent-damage state side eid target))
+     :effect (effect (prevent-damage state side eid target))
      :cancel {:async true
-              :effect (req (prevent-damage state side eid 0))}}))
+              :effect (effect (prevent-damage state side eid 0))}}))
 
 (defn resolve-pre-damage-for-side
   [state side eid]
@@ -498,8 +498,8 @@
       (resolve-ability
         state side eid
         {:prompt "Prevent which card from being exposed?"
-         :choices (req (sort-by :title (get-in @state [:prevent :expose :remaining])))
-         :effect (req (swap! state update-in [:prevent :expose :remaining] (fn [v] (filterv #(not (same-card? % target)) v)))
+         :choices (effect (sort-by :title (get-in @state [:prevent :expose :remaining])))
+         :effect (effect (swap! state update-in [:prevent :expose :remaining] (fn [v] (filterv #(not (same-card? % target)) v)))
                       (swap! state update-in [:prevent :expose :prevented] (fnil inc 0)))}
         card nil))
     (do (timbre/error (str "tried to prevent expose outside of an expose prevention window\n"
@@ -566,13 +566,13 @@
           (max-to-avoid [state n] (if (= n :all) (remainder state) (min (remainder state) n)))]
     {:prompt "Choose how many tags to avoid"
      :req (req (get-in @state [:prevent :tag]))
-     :choices {:number (req (max-to-avoid state n))
-               :default (req (max-to-avoid state n))}
+     :choices {:number (effect (max-to-avoid state n))
+               :default (effect (max-to-avoid state n))}
      :async true
      :msg (msg "avoid " (quantify target "tag"))
-     :effect (req (prevent-tag state side eid target))
+     :effect (effect (prevent-tag state side eid target))
      :cancel {:async true
-              :effect (req (prevent-tag state side eid 0))}}))
+              :effect (effect (prevent-tag state side eid 0))}}))
 
 (defn resolve-tag-prevention-for-side
   [state side eid]
@@ -590,7 +590,7 @@
                     {:count n :remaining n :prevented 0 :source-player side :source-card card :uses {}})
   (if (or unpreventable (not (pos? n)))
     (complete-with-result state side eid (fetch-and-clear! state :tag))
-    (wait-for (trigger-event-simult state side :tag-interrupt nil card)
+    (wait-for (trigger-event-simult state side :tag-interrupt nil nil)
               (let [active-side (:active-player @state)
                     responding-side (other-side active-side)]
                 (wait-for

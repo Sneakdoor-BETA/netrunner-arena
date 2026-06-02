@@ -546,6 +546,22 @@
     (click-prompt state :runner "No action")
     (is-deck? state :runner ["Orca"])))
 
+(deftest beta-build-vs-ice-swap
+  (do-game
+    (new-game {:runner {:hand ["Beta Build" "Rising Tide" "Sipa"] :credits 10 :deck ["Kyuban"]}
+               :corp {:hand ["Vanilla" "Ice Wall"]}})
+    (play-cards state :corp ["Vanilla" "HQ" :rezzed] ["Ice Wall" "R&D"])
+    (take-credits state :corp)
+    (play-cards state :runner "Rising Tide" "Sipa" ["Beta Build" "Kyuban" "Vanilla" "HQ"])
+    (run-continue-until state :encounter-ice)
+    (card-ability state :runner (get-program state 0) 0)
+    (click-prompt state :runner "End the run")
+    (run-continue state)
+    (click-prompts state :runner "Kyuban" "Sipa" "Ice Wall")
+    (run-continue-until state :success)
+    (is (no-prompt? state :runner) "No lingering prompt")
+    (is-deck? state :runner ["Kyuban"])))
+
 #_(deftest ^:kaocha/pending beta-build-cannot-run
     ;; note that peace in our time needs to be updated currently, it forbids
     ;; run events when it should not
@@ -6944,7 +6960,7 @@
       (is (no-prompt? state :runner) "No longer accessing cards"))))
 
 (deftest shred-test
-  (doseq [opt [(str "Trash 3 cards randomly from your hand") "The run does not end"]]
+  (doseq [opt ["Trash 3 cards randomly from your hand" "The run does not end"]]
     (do-game
       (new-game {:runner {:hand ["Shred"]}
                  :corp {:hand ["Prisec" "Ice Wall" "Ganked!" "PAD Campaign" "Hedge Fund" "IPO"
@@ -7445,7 +7461,7 @@
             (play-from-hand state :runner "Tailgate"))
           "discounted")
       (run-continue-until state :success)
-      (dotimes [n 3]
+      (dotimes [_ 3]
         (click-prompt state :runner "No action"))
       (is (no-prompt? state :runner)))))
 
@@ -8163,6 +8179,23 @@
           "Corp re-rezzed Bloop ignoring all costs")
       (is (no-prompt? state :runner) "No Bloop prompt to derez an Harmonic ice")
       (is (rezzed? (refresh bloop))))))
+
+(deftest window-of-opportunity-vs-tungsten-tailor
+  (do-game
+    (new-game {:corp {:hand ["Echo" "Bloop"]
+                      :credits 20}
+               :runner {:hand ["Window of Opportunity" "The Tungsten Tailor"]}})
+    (play-from-hand state :corp "Echo" "HQ")
+    (rez state :corp "Echo")
+    (take-credits state :corp)
+    (play-from-hand state :runner "Window of Opportunity")
+    (click-prompt state :runner "HQ")
+    (is (changed? [(:credit (get-runner)) -3]
+          (click-card state :runner "The Tungsten Tailor"))
+        "Runner paid install cost")
+    (is (not (no-prompt? state :runner)) "Window of Opportunity prompt to select ice to derez")
+    (click-card state :runner "Echo")
+    (is (not (rezzed? (get-ice state :hq 0))) "Echo derezzed")))
 
 (deftest window-of-opportunity-no-derez
   (do-game

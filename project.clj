@@ -18,7 +18,7 @@
                  :init-ns web.dev
                  :init (go)}
 
-  :dependencies [[org.clojure/clojure "1.12.0"]
+  :dependencies [[org.clojure/clojure "1.12.4"]
                  [org.clojure/clojurescript "1.11.132"
                   :exclusions [org.clojure/google-closure-library
                                org.clojure/data.json
@@ -80,6 +80,7 @@
                                   [lambdaisland/kaocha "1.68.1059"]
                                   [thheller/shadow-cljs "2.28.21"]]
                    :plugins [[lein-eftest "0.6.0"]
+                             [jonase/eastwood "1.4.3"]
                              [cider/cider-nrepl "0.47.1"]]
                    :eftest {:report eftest.report.pretty/report
                             :fail-fast? false}

@@ -11,7 +11,7 @@
     [nr.auth :refer [authenticated] :as auth]
     [nr.cardbrowser :refer [cards-channel factions filter-title image-url] :as cb]
     [nr.deck-status :refer [deck-status-span]]
-    [nr.translations :refer [tr tr-span tr-element tr-faction tr-format tr-side tr-type tr-data]]
+    [nr.translations :refer [tr tr-span tr-element tr-faction tr-format tr-side tr-sort-order tr-type tr-data]]
     [nr.utils :refer [alliance-dots banned-span cond-button
                       deck-points-card-span dots-html buildable-format->slug format-date-time
                       influence-dot influence-dots mdy-formatter non-game-toast
@@ -144,17 +144,25 @@
         (add-params result card-params))
       nil)))
 
+(defn- parse-meta-line
+  "Parse a ;; key: value metadata line. Returns [keyword value] or nil."
+  [line]
+  (when-let [[_ k v] (re-matches #";;\s*(identity|identity-code|title|notes)\s*:\s*(.+)" (str/trim line))]
+    [(keyword k) (str/trim v)]))
+
 (defn- line-reducer
   "Reducer function to parse lines in a deck string"
   [acc line]
   (if-let [card (parse-line line)]
-    (conj acc card)
-    acc))
+    (update acc :cards conj card)
+    (if-let [[k v] (parse-meta-line line)]
+      (assoc-in acc [:meta k] v)
+      acc)))
 
 (defn deck-string->list
-  "Turn a raw deck string into a list of {:qty :title}"
+  "Turn a raw deck string into a map of {:cards [...] :meta {...}}"
   [deck-string]
-  (reduce line-reducer [] (split-lines deck-string)))
+  (reduce line-reducer {:cards [] :meta {}} (split-lines deck-string)))
 
 (defn collate-deck
   "Takes a list of {:qty n :card title} and returns list of unique titles and summed n for same title"
@@ -171,8 +179,10 @@
   "Takes a list of {:qty n :card title} and looks up each title and replaces it with the corresponding cardmap"
   [side card-list]
   (let [card-list (collate-deck card-list)]
-    ;; lookup each card and replace title with cardmap
-    (map #(assoc % :card (lookup side (assoc % :title (:card %)))) card-list)))
+    ;; lookup each card and replace title with cardmap, excluding identities
+    (->> card-list
+         (map #(assoc % :card (lookup side (assoc % :title (:card %)))))
+         (remove #(= (:type (:card %)) "Identity")))))
 
 (defn process-cards-in-deck
   "Process the raw deck from the database into a more useful format"
@@ -183,9 +193,8 @@
       (assoc deck :cards cards :parsed? true))))
 
 (defn load-decks [decks]
-  (let [decks (sort-by :date > decks)]
-    (swap! app-state assoc :decks decks)
-    (swap! app-state assoc :decks-loaded true)))
+  (swap! app-state assoc :decks decks)
+  (swap! app-state assoc :decks-loaded true))
 
 (defn- add-deck-name
   [all-titles card]
@@ -585,7 +594,8 @@
       (9 13) (when-not (= (:query @s) (:title (first matches)))
                (.preventDefault event)
                (-> ".deckedit .qty" js/$ .select)
-               (swap! s assoc :query (:title (nth matches selected))))
+               (when-let [m (nth matches selected nil)]
+                 (swap! s assoc :query (:title m))))
       (swap! s assoc :selected 0))))
 
 (defn update-decklist-cards
@@ -741,6 +751,25 @@
 (def all-sides-filter "Any Side")
 (def all-factions-filter "Any Faction")
 (def all-formats-filter "Any Format")
+(def default-sort-order "date-newest")
+
+(def all-sort-orders
+  [default-sort-order "date-oldest" "name-az" "name-za"
+   "win-rate" "games-played"])
+
+(defn- sort-decks [sort-order decks]
+  (case sort-order
+    "date-newest"  (sort-by (juxt :date :_id) > decks)
+    "date-oldest"  (sort-by (juxt :date :_id) < decks)
+    "name-az"      (sort-by #(lower-case (or (:name %) "")) decks)
+    "name-za"      (sort-by #(lower-case (or (:name %) "")) > decks)
+    "win-rate"     (sort-by #(let [s (:stats %)
+                                   w (or (:wins s) 0)
+                                   l (or (:loses s) 0)]
+                               (safe-divide w (+ w l))) > decks)
+    "games-played" (sort-by #(let [s (:stats %)]
+                               (or (:games-started s) -1)) > decks)
+    (sort-by (juxt :date :_id) > decks)))
 
 (defn- filter-side [side-filter decks]
   (if (= all-sides-filter @side-filter)
@@ -781,7 +810,7 @@
        :reagent-render
        (fn [filtered-decks s _]
          (into [:div.deck-collection {:ref #(reset! !node-ref %)}]
-               (for [deck (sort-by (juxt :date :_id) > filtered-decks)]
+               (for [deck (sort-decks (get @s :sort-order default-sort-order) filtered-decks)]
                  ^{:key (:_id deck)}
                  [deck-entry s deck])))})))
 
@@ -993,7 +1022,8 @@
   (swap! state assoc
          :side-filter all-sides-filter
          :faction-filter all-factions-filter
-         :format-filter all-formats-filter))
+         :format-filter all-formats-filter
+         :sort-order default-sort-order))
 
 (defn view-buttons
   [s deck]
@@ -1110,18 +1140,58 @@
          {:value (identity-option-string card)}
          (:display-name card)]))]])
 
+(defn- lookup-identity-by-code
+  "Look up an identity card by card code and side. Returns nil if not found or not an identity."
+  [side code]
+  (first (filter #(and (= (:code %) code) (= (:type %) "Identity") (= (:side %) side))
+                 (vals @all-cards))))
+
+(defn- lookup-identity-by-title
+  "Look up an identity card by title for the given side.
+   Supports partial/substring matching like card lookup. Returns nil if no unique match."
+  [side title]
+  (let [idents (filter #(and (= (:side %) side) (= (:type %) "Identity"))
+                       (vals @all-cards))
+        q (lower-case title)
+        exact (filter-exact-title q idents)]
+    (if (not-empty exact)
+      (take-best-card exact)
+      (loop [i 2
+             matches idents]
+        (let [subquery (subs q 0 (min i (count q)))]
+          (cond
+            (zero? (count matches)) nil
+            (or (= (count matches) 1) (identical-cards? matches)) (take-best-card matches)
+            (<= i (count title)) (recur (inc i) (filter-title subquery matches))
+            :else nil))))))
+
 (defn parse-deck-string
-  "Parses a string containing the decklist and returns a list of lines {:qty :card}"
+  "Parses a deck string. Returns {:cards [...] :identity <card-or-nil> :title <str-or-nil> :notes <str-or-nil>}"
   [side deck-string]
-  (let [raw-deck-list (deck-string->list deck-string)]
-    (lookup-deck side raw-deck-list)))
+  (let [{:keys [cards meta]} (deck-string->list deck-string)
+        parsed-cards (lookup-deck side cards)
+        found-identity (or (when-let [c (:identity-code meta)]
+                             (lookup-identity-by-code side c))
+                           (when-let [t (:identity meta)]
+                             (lookup-identity-by-title side t)))]
+    {:cards parsed-cards
+     :identity found-identity
+     :title (:title meta)
+     :notes (:notes meta)}))
 
 (defn handle-edit [s]
   (let [text (.-value (:deckedit @db-dom))
         side (get-in @s [:deck :identity :side])
-        cards (parse-deck-string side text)]
+        {:keys [cards identity title notes]} (parse-deck-string side text)]
     (swap! s assoc :deck-edit text)
-    (swap! s assoc-in [:deck :cards] cards)))
+    (swap! s assoc-in [:deck :cards] cards)
+    (when identity
+      (let [display-name (build-identity-name (tr-data :title identity) (:setname identity))]
+        (swap! s assoc-in [:deck :identity] (assoc identity :display-name display-name))))
+    (when title
+      (swap! s assoc-in [:deck :name] title))
+    (when notes
+      (swap! s assoc-in [:deck :notes] notes))))
 
 (defn edit-textbox
   [s]
@@ -1224,17 +1294,20 @@
   [state decks-loaded scroll-top]
   (let [formats (-> buildable-format->slug keys butlast)]
     [:div.deckfilter
-     (doall
-       (for [[state-key options callback translator]
-             [[:side-filter [all-sides-filter "Corp" "Runner"] handle-side-changed tr-side]
-              [:faction-filter (cons all-factions-filter (factions (:side-filter @state))) nil tr-faction]
-              [:format-filter (cons all-formats-filter formats) nil tr-format]]]
-         ^{:key state-key}
-         [simple-filter-builder state state-key options decks-loaded callback scroll-top translator]))
-
-     [:button {:class (if-not @decks-loaded "disabled" "")
-               :on-click #(reset-deck-filters state)}
-      [tr-span [:deck-builder_reset "Reset"]]]]))
+     [:div.deckfilter-row
+      (doall
+        (for [[state-key options callback translator]
+              [[:side-filter [all-sides-filter "Corp" "Runner"] handle-side-changed tr-side]
+               [:faction-filter (cons all-factions-filter (factions (:side-filter @state))) nil tr-faction]
+               [:format-filter (cons all-formats-filter formats) nil tr-format]]]
+          ^{:key state-key}
+          [simple-filter-builder state state-key options decks-loaded callback scroll-top translator]))
+      [:button {:class (if-not @decks-loaded "disabled" "")
+                :on-click #(reset-deck-filters state)}
+       [tr-span [:deck-builder_reset "Reset"]]]]
+     [:div.deckfilter-row
+      [:span.deckfilter-label [tr-span [:deck-builder_sort "Sort:"]]]
+      [simple-filter-builder state :sort-order all-sort-orders decks-loaded nil scroll-top tr-sort-order]]]))
 
 (defn- zoom-card-view [card]
   (when-let [url (image-url card)]
@@ -1278,6 +1351,7 @@
                    :side-filter all-sides-filter
                    :faction-filter all-factions-filter
                    :format-filter all-formats-filter
+                   :sort-order default-sort-order
                    :show-credit-cost false
                    :show-mu-cost false
                    :cleanup-mode false

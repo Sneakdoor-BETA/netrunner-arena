@@ -56,7 +56,7 @@
 (defn command-adv-counter [state side value]
   (let [value (constrain-value value 0 1000)]
     (resolve-ability state side
-                     {:effect (effect (set-adv-counter target value))
+                     {:effect (effect (set-adv-counter state side target value))
                       :choices {:card (fn [t] (same-side? (:side t) side))}}
                      (make-card {:title "/adv-counter command"}) nil)))
 
@@ -85,7 +85,7 @@
   (resolve-ability
     state side
     {:choices {:card (fn [t] (same-side? (:side t) side))}
-     :effect (req (let [existing (:counter target)
+     :effect (effect (let [existing (:counter target)
                         value (constrain-value (if-let [n (string->num (first args))] n 0) 0 1000)
                         counter-type (cond (= 1 (count existing)) (first (keys existing))
                                      (can-be-advanced? state target) :advance-counter
@@ -119,7 +119,7 @@
                     :choices {:card #(and (runner? %)
                                           (in-hand? %))}
                     :async true
-                    :effect (effect (runner-install (make-eid state eid) target {:facedown true}))}
+                    :effect (effect (runner-install state side (make-eid state eid) target {:facedown true}))}
                    (make-card {:title "/faceup command"}) nil))
 
 (defn command-counter [state side args]
@@ -145,8 +145,8 @@
       (if advance
         (command-adv-counter state side value)
         (resolve-ability state side
-                         {:effect (effect (update! (assoc-in target [:counter counter-type] value))
-                                          (system-msg (str "sets " (name counter-type) " counters to " value " on "
+                         {:effect (effect (update! state side (assoc-in target [:counter counter-type] value))
+                                          (system-msg state side (str "sets " (name counter-type) " counters to " value " on "
                                                            (card-str state target))))
                           :choices {:card (fn [t] (same-side? (:side t) side))}}
                          (make-card {:title "/counter command"}) nil)))))
@@ -164,7 +164,7 @@
     (when (seq agendas)
       {:optional
        {:prompt "Turn all agendas faceup?"
-        :yes-ability {:effect (req (doseq [c agendas]
+        :yes-ability {:effect (effect (doseq [c agendas]
                                      (update! state side (assoc c :seen true))))
                       :msg (msg "turns all agendas faceup")}}})))
 
@@ -176,7 +176,7 @@
      {:prompt "Rez all cards and turn cards in archives faceup?"
       :waiting-prompt true
       :yes-ability {:async true
-                    :effect (req (swap! state update-in [:corp :discard] #(map (fn [c] (assoc c :seen true)) %))
+                    :effect (effect (swap! state update-in [:corp :discard] #(map (fn [c] (assoc c :seen true)) %))
                                  (wait-for
                                    (rez-all state side (remove rezzed? (all-installed state side)))
                                    (continue-ability
@@ -256,7 +256,7 @@
   "Toggles :uniqueness of the selected card"
   [state side]
   (resolve-ability state side
-                   {:effect (effect (set-prop target :uniqueness (not (:uniqueness target))))
+                   {:effect (effect (set-prop state side target :uniqueness (not (:uniqueness target))))
                     :msg (msg "make " (card-str state target)
                               (when (:uniqueness target) " not") ;it was unique before
                               " unique")
@@ -280,13 +280,13 @@
         :choices {:card #(and (corp? %)
                               (not (installed? %)))}
         :async true
-        :effect (req (corp-install state side eid target nil {:ignore-all-cost ignore-all-cost}))}
+        :effect (effect (corp-install state side eid target nil {:ignore-all-cost ignore-all-cost}))}
        {:prompt (str "Choose a card to install" (when ignore-all-cost " (ignoring all costs)"))
         :waiting-prompt true
         :choices {:card #(and (runner? %)
                               (not (installed? %)))}
         :async true
-        :effect (req (runner-install state side eid target {:ignore-all-cost ignore-all-cost}))})
+        :effect (effect (runner-install state side eid target {:ignore-all-cost ignore-all-cost}))})
      (make-card {:title (str "/install" (when ignore-all-cost "-free") " command")}) nil)))
 
 (defn command-install-free
@@ -305,20 +305,20 @@
        :async true
        :effect (effect
                  (continue-ability
-                   (let [chosen-ice target]
+                   state side (let [chosen-ice target]
                      {:prompt "Choose a server"
-                      :choices (req servers)
+                      :choices (effect servers)
                       :async true
                       :effect (effect
                                 (continue-ability
-                                  (let [chosen-server target
+                                  state side (let [chosen-server target
                                         num-ice (count (get-in (:corp @state)
                                                                (conj (server->zone state target) :ices)))]
                                     {:prompt "Which position to install in? (0 is innermost)"
                                      :choices (vec (reverse (map str (range (inc num-ice)))))
                                      :async true
                                      :effect (effect (corp-install
-                                                       (make-eid state eid)
+                                                       state side (make-eid state eid)
                                                        chosen-ice chosen-server
                                                        {:no-install-cost true
                                                         :index (str->int target)}))})
@@ -347,12 +347,12 @@
      state side
      {:prompt "Choose an agenda to score"
       :waiting-prompt true
-      :choices {:req (req (and (agenda? target)
+      :choices {:req (req (agenda? target)
                                (or (installed? target)
-                                   (in-hand? target))))}
+                                   (in-hand? target)))}
       :msg (msg "score " (card-str state target {:visible true}) ", ignoring all restrictions")
       :async true
-      :effect (effect (score eid target {:no-req true :ignore-turn true}))}
+      :effect (effect (score state side eid target {:no-req true :ignore-turn true}))}
      (make-card {:title "the '/score' command"}) nil)))
 
 (defn command-summon
@@ -411,12 +411,12 @@
        :async true
        :effect (effect
                  (continue-ability
-                   (let [h1 target]
+                   state side (let [h1 target]
                      {:prompt "Choose the card to host the first card"
                       :choices {:card #(and (f %)
                                             (installed? %)
                                             (not (same-card? % h1)))}
-                      :effect (effect (host target h1 nil))})
+                      :effect (effect (host state side target h1 nil))})
                    nil nil))}
       nil nil)))
 
@@ -429,7 +429,7 @@
       :waiting-prompt true
       :choices {:card #(rezzed? %)}
       :async true
-      :effect (effect (derez eid target {:no-event true}))}
+      :effect (effect (derez state side eid target {:no-event true}))}
      nil nil)))
 
 (defn command-trash
@@ -441,7 +441,7 @@
        :waiting-prompt true
        :choices {:card #(f %)}
        :async true
-       :effect (effect (trash eid target {:unpreventable true}))}
+       :effect (effect (trash state side eid target {:unpreventable true}))}
       nil nil)))
 
 (defn command-swap-sides
@@ -454,7 +454,7 @@
       {:prompt "Your opponent wishes to swap sides"
        :waiting-prompt true
        :choices ["Accept" "Decline" "Don't ask me again"]
-       :effect (req (cond
+       :effect (effect (cond
                       (= target "Decline")
                       (toast state (other-side side) "your opponent does not wish to swap sides at this time")
                       (= target "Don't ask me again")
@@ -492,7 +492,7 @@
             "/bp"         #(swap! %1 assoc-in [%2 :bad-publicity :base] (constrain-value value -1000 1000))
             "/bug"        command-bug-report
             "/card-info"  #(resolve-ability %1 %2
-                                            {:effect (effect (system-msg (str "shows card-info of "
+                                            {:effect (effect (system-msg state side (str "shows card-info of "
                                                                               (card-str state target)
                                                                               ": " (get-card state target))))
                                              :choices {:card (fn [t] (same-side? (:side t) %2))}}
@@ -501,7 +501,7 @@
                                             {:prompt "Choose an installed card"
                                              :waiting-prompt true
                                              :async true
-                                             :effect (req (charge-card %1 %2 eid target))
+                                             :effect (effect (charge-card %1 %2 eid target))
                                              :choices {:card (fn [t] (same-side? (:side t) %2))}}
                                             (make-card {:title "/charge command"}) nil)
             "/choose-hq-access" #(command-choose-hq-accesses %1 %2)
@@ -515,7 +515,7 @@
             "/disable-card" #(resolve-ability %1 %2
                                               {:prompt "Choose a card to disable"
                                                :waiting-prompt true
-                                               :effect (req (disable-card state side target))
+                                               :effect (effect (disable-card state side target))
                                                :choices {:card (fn [t] (same-side? (:side t) %2))}}
                                               (make-card {:title "/disable-card command"}) nil)
             "/discard"    #(toast %1 %2 "/discard number takes the format #n")
@@ -524,7 +524,7 @@
             "/enable-card" #(resolve-ability %1 %2
                                              {:prompt "Choose a card to enable"
                                               :waiting-prompt true
-                                              :effect (req (enable-card state side target))
+                                              :effect (effect (enable-card state side target))
                                               :choices {:card (fn [t] (same-side? (:side t) %2))}}
                                              (make-card {:title "/enable-card command"}) nil)
             "/end-run"    (fn [state side]
@@ -556,21 +556,21 @@
             "/move-bottom"  #(resolve-ability %1 %2
                                               {:prompt "Choose a card in hand to put on the bottom of your deck"
                                                :waiting-prompt true
-                                               :effect (effect (move target :deck))
+                                               :effect (effect (move state side target :deck))
                                                :choices {:card (fn [t] (and (same-side? (:side t) %2)
                                                                             (in-hand? t)))}}
                                               (make-card {:title "/move-bottom command"}) nil)
             "/move-deck"   #(resolve-ability %1 %2
                                              {:prompt "Choose a card to move to the top of your deck"
                                               :waiting-prompt true
-                                              :effect (req (let [c (deactivate %1 %2 target)]
+                                              :effect (effect (let [c (deactivate %1 %2 target)]
                                                              (move %1 %2 c :deck {:front true})))
                                               :choices {:card (fn [t] (same-side? (:side t) %2))}}
                                              (make-card {:title "/move-deck command"}) nil)
             "/move-hand"  #(resolve-ability %1 %2
                                             {:prompt "Choose a card to move to your hand"
                                              :waiting-prompt true
-                                             :effect (req (let [c (deactivate %1 %2 target)]
+                                             :effect (effect (let [c (deactivate %1 %2 target)]
                                                             (move %1 %2 c :hand)))
                                              :choices {:card (fn [t] (same-side? (:side t) %2))}}
                                             (make-card {:title "/move-hand command"}) nil)
@@ -585,21 +585,21 @@
                              (resolve-ability %1 %2
                                               {:choices {:card (fn [t] (same-side? (:side t) %2))}
                                                :async true
-                                               :effect (effect (rez eid target {:ignore-cost :all-costs :force true}))}
+                                               :effect (effect (rez state side eid target {:ignore-cost :all-costs :force true}))}
                                               (make-card {:title "/rez command"}) nil))
             "/rez-all"    #(when (= %2 :corp) (command-rezall %1 %2))
             "/rez-free"   #(when (= %2 :corp)
                              (resolve-ability %1 %2
                                               {:choices {:card (fn [t] (same-side? (:side t) %2))}
                                                :async true
-                                               :effect (effect (disable-card target)
-                                                               (rez eid target {:ignore-cost :all-costs :force true})
-                                                               (enable-card (get-card state target)))}
+                                               :effect (effect (disable-card state side target)
+                                                               (rez state side eid target {:ignore-cost :all-costs :force true})
+                                                               (enable-card state side (get-card state target)))}
                                               (make-card {:title "/rez command"}) nil))
             "/rfg"        #(resolve-ability %1 %2
                                             {:prompt "Choose a card"
                                              :waiting-prompt true
-                                             :effect (req (let [c (deactivate %1 %2 target)]
+                                             :effect (effect (let [c (deactivate %1 %2 target)]
                                                             (move %1 %2 c :rfg)))
                                              :choices {:card (fn [t] (same-side? (:side t) %2))}}
                                             (make-card {:title "/rfg command"}) nil)
@@ -609,7 +609,7 @@
             "/set-mark"   #(command-set-mark %1 %2 args)
             "/score"      command-score
             "/show-hand" #(resolve-ability %1 %2
-                                           {:effect (effect (system-msg (str
+                                           {:effect (effect (system-msg state side (str
                                                                           (if (= :corp %2)
                                                                             "shows cards from HQ: "
                                                                             "shows cards from the grip: ")
@@ -625,7 +625,7 @@
                                           :all true
                                           :card (fn [c] (and (installed? c)
                                                              (ice? c)))}
-                                :effect (effect (swap-ice (first targets) (second targets)))}
+                                :effect (effect (swap-ice state side (first targets) (second targets)))}
                                (make-card {:title "/swap-ice command"}) nil))
             "/swap-installed" #(when (= %2 :corp)
                                  (resolve-ability
@@ -637,7 +637,7 @@
                                               :card (fn [c] (and (installed? c)
                                                                  (corp? c)
                                                                  (not (ice? c))))}
-                                    :effect (effect (swap-installed (first targets) (second targets)))}
+                                    :effect (effect (swap-installed state side (first targets) (second targets)))}
                                    (make-card {:title "/swap-installed command"}) nil))
             "/swap-sides" #(command-swap-sides %1 %2)
             "/tag"        #(swap! %1 assoc-in [%2 :tag :base] (constrain-value value 0 1000))

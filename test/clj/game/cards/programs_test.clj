@@ -8,7 +8,7 @@
    [game.core.ice :refer [pump-ice update-all-icebreakers]]
    [game.core.payment :refer [->c]]
    [game.core.props :refer [add-counter]]
-   [game.core.threat :refer [threat-level get-threat-level]]
+   [game.core.threat :refer [threat-level]]
    [game.test-framework :refer :all]
    [game.utils :as utils]))
 
@@ -7318,6 +7318,19 @@
         "Physarum Entangler cost was paid")
     (is (= :movement (:phase (get-run))) "Runner has bypassed Ravana")))
 
+(deftest physarum-entangler-vs-mantle
+  (do-game
+    (new-game {:runner {:hand ["Physarum Entangler" "Mantle"] :credits 2}
+               :corp {:hand ["Vanilla" "Whitespace"]}})
+    (play-from-hand state :corp "Whitespace" "Archives")
+    (take-credits state :corp)
+    (play-cards state :runner "Mantle" ["Physarum Entangler" "Whitespace"])
+    (run-on state :archives)
+    (rez state :corp "Whitespace")
+    (run-continue-until state :encounter-ice)
+    (click-prompts state :runner "Yes" "Mantle")
+    (is (= :movement (:phase (get-run))) "Runner has bypassed Whitespace")))
+
 (deftest pichacao
   ;; Pichação
   (do-game
@@ -8038,6 +8051,20 @@
       (is (= 6 (:credit (get-runner))) "Gained 1 credit")
       (play-from-hand state :runner "Fall Guy")
       (is (no-prompt? state :runner) "Can't host non-program"))))
+
+(deftest scheherazade-hosted-card-order
+  ;; Scheherazade - hosted cards appear in installation order (oldest left, newest right)
+  (do-game
+    (new-game {:runner {:hand ["Scheherazade" "Inti" "Cache"]}})
+    (take-credits state :corp)
+    (play-from-hand state :runner "Scheherazade")
+    (let [sch (get-program state 0)]
+      (play-from-hand state :runner "Inti")
+      (click-prompt state :runner "Scheherazade")
+      (play-from-hand state :runner "Cache")
+      (click-prompt state :runner "Scheherazade")
+      (is (= "Inti" (:title (first (:hosted (refresh sch))))) "First installed program is first in hosted list")
+      (is (= "Cache" (:title (second (:hosted (refresh sch))))) "Second installed program is second in hosted list"))))
 
 (deftest self-modifying-code-trash-pay-2-to-search-deck-for-a-program-and-install-it-shuffle
     ;; Trash & pay 2 to search deck for a program and install it. Shuffle

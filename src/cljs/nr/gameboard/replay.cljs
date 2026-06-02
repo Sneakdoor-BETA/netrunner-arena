@@ -1,30 +1,55 @@
 (ns nr.gameboard.replay
   (:require-macros [cljs.core.async.macros :refer [go]])
   (:require
-   [cljs.core.async :refer [<! timeout] :as async]
-   [clojure.string :as s :refer [blank? capitalize ends-with? join]]
-   [differ.core :as differ]
-   [nr.ajax :refer [DELETE GET PUT]]
-   [nr.appstate :refer [app-state]]
-   [nr.gameboard.state :refer [game-state last-state replay-side]]
-   [nr.local-storage :as ls]
-   [nr.translations :refer [tr tr-span tr-element]]
-   [nr.utils :refer [tr-non-game-toast render-message]]
-   [nr.ws :as ws]
-   [reagent.core :as r]))
+    [cljs.core.async :refer [<! timeout] :as async]
+    [clojure.string :as s :refer [blank? capitalize]]
+    [game.replay :as replay]
+    [nr.ajax :refer [DELETE GET PUT]]
+    [nr.appstate :refer [app-state]]
+    [nr.gameboard.state :refer [game-state last-state replay-side]]
+    [nr.local-storage :as ls]
+    [nr.new-game :refer [create-game]]
+    [nr.translations :refer [tr tr-span tr-element]]
+    [nr.utils :refer [tr-non-game-toast render-message]]
+    [nr.ws :as ws]
+    [reagent.core :as r]))
 
 (defonce replay-timeline (atom []))
 (defonce replay-status (r/atom {:autoplay false :speed 1600}))
 (defonce show-replay-link (r/atom false))
 
-(declare replay-jump replay-jump-to populate-replay-timeline)
+(declare load-notes get-remote-annotations)
+
+(defn leave-game! []
+  (reset! game-state nil)
+  (swap! app-state assoc :gameid nil)
+  (swap! app-state dissoc :current-game :start-shown)
+  (set! (.-cursor (.-style (.-body js/document))) "default")
+  (set! (.-onbeforeunload js/window) nil)
+  (-> "#gameboard" js/$ .fadeOut)
+  (-> "#gamelobby" js/$ .fadeIn))
+
+(defn replay-deps []
+  {:app-state app-state
+   :game-state game-state
+   :last-state last-state
+   :replay-status replay-status
+   :replay-timeline replay-timeline
+   :replay-side replay-side
+   :load-notes load-notes
+   :get-remote-annotations get-remote-annotations})
+
+(defn run-replay-step! [replay-fn & args]
+  (apply replay-fn (replay-deps) args)
+  (reset! ws/lock false))
+
 (defn init-replay [app-state state]
   (ls/save! "gameid" "local-replay")
   (swap! app-state assoc :gameid "local-replay") ;set for main.cljs
-  (populate-replay-timeline state)
+  (run-replay-step! replay/populate-replay-timeline! state)
   (if (:replay-jump-to state)
-    (replay-jump-to (:replay-jump-to state))
-    (replay-jump 0)))
+    (run-replay-step! replay/replay-jump-to! (:replay-jump-to state))
+    (run-replay-step! replay/replay-jump! 0)))
 
 (defn generate-replay-link [origin]
   (let [n (:n @replay-status)
@@ -49,201 +74,6 @@
             (- (.-scrollLeft timeline)
                diff)))))
 
-(defn replay-reached-end? []
-  (and (empty? (:diffs @replay-status))
-       (>= (inc (:n @replay-status))
-          (count @replay-timeline))))
-
-(defn replay-prepare-state
-  [state]
-  (-> state
-    (assoc :side @replay-side
-           :replay true)
-    (assoc-in [:options :spectatorhands] true)))
-
-(defn replay-apply-patch
-  [patch]
-  (reset! game-state (replay-prepare-state (differ/patch @last-state patch)))
-  (reset! ws/lock false)
-  (reset! last-state @game-state))
-
-(declare load-notes)
-(defn replay-jump [n]
-  (cond
-    (neg? n)
-    (do
-      (swap! app-state assoc :start-shown false)
-      (replay-jump 0))
-
-    (< n (count @replay-timeline))
-    (do
-      (swap! app-state assoc :start-shown true)
-      (reset! game-state (replay-prepare-state (get-in @replay-timeline [n :state])))
-      (reset! ws/lock false)
-      (reset! last-state @game-state)
-      (swap! replay-status merge {:n n :diffs (get-in @replay-timeline [n :diffs])})
-      (load-notes))))
-
-(defn replay-forward []
-  (swap! app-state assoc :start-shown true)
-  (let [{:keys [n diffs]} @replay-status]
-    (if (empty? diffs)
-      (do
-        (when (< (inc n) (count @replay-timeline))
-          (replay-jump (inc n))
-          (replay-forward)))
-      (do
-        (replay-apply-patch (first diffs))
-        (if (empty? (rest diffs))
-          (replay-jump (inc n))
-          (swap! replay-status assoc :diffs (rest diffs)))))))
-
-(defn replay-jump-to-next-bug []
-  (replay-forward)
-  (while (not (or (ends-with? (-> @game-state :log last :text) "uses a command: /bug")
-                  (replay-reached-end?)))
-    (replay-forward)))
-
-(defn replay-jump-to [{:keys [n d bug]}]
-  (if bug
-    (do
-      (replay-jump 0)
-      (dotimes [i (inc bug)] (replay-jump-to-next-bug)))
-    (do
-      (replay-jump n)
-      (dotimes [i d] (replay-forward)))))
-
-(defn replay-log-forward []
-  (let [prev-log (:log @game-state)]
-    (while (and
-             (or (= prev-log (:log @game-state))
-                 (= "typing" (-> @game-state :log last :text)))
-             (not (replay-reached-end?)))
-      (replay-forward))))
-
-(defn replay-step-forward []
-  (replay-jump (inc (:n @replay-status))))
-
-(defn replay-step-backward []
-  (replay-jump (dec (:n @replay-status))))
-
-(defn replay-backward []
-  (let [n (:n @replay-status)
-        d (- (count (get-in @replay-timeline [n :diffs]))
-             (count (:diffs @replay-status)))]
-    (if (zero? d)
-      (when (pos? n)
-        (replay-jump-to {:n (dec n) :d 0}))
-      (replay-jump-to {:n n :d (dec d)}))))
-
-(defn replay-reached-start? []
-  (let [n (:n @replay-status)
-        d (- (count (get-in @replay-timeline [n :diffs]))
-             (count (:diffs @replay-status)))]
-    (and (zero? n) (zero? d))))
-
-(defn replay-log-backward []
-  (let [prev-log (:log @game-state)]
-    (while (and
-             (or (= prev-log (:log @game-state))
-                 (= "typing" (-> @game-state :log last :text)))
-             (not (replay-reached-start?)))
-      (replay-backward))))
-
-(declare get-remote-annotations)
-(defn populate-replay-timeline
-  [init-state]
-  (let [state (replay-prepare-state (dissoc init-state :replay-diffs))
-        diffs (:replay-diffs init-state)]
-    (reset! replay-timeline [{:type :start-of-game :state state}])
-    (swap! replay-status assoc :annotations {:turns {:corp {} :runner {}}
-                                             :clicks {}})
-    (swap! replay-status assoc :remote-annotations [])
-    (when (not= "local-replay" (:gameid state))
-      (get-remote-annotations (:gameid state)))
-    (dorun (loop [old-state @game-state
-                  diffs diffs
-                  inter-diffs []]
-             (if (empty? diffs)
-               (do
-                 (reset! replay-timeline (conj (pop @replay-timeline) (assoc (last @replay-timeline) :diffs inter-diffs)))
-                 (swap! replay-timeline conj {:type :end-of-game :state old-state}))
-               (let [new-state (differ/patch old-state (first diffs))
-                     inter-diffs (conj inter-diffs (first diffs))
-                     diffs (rest diffs)
-                     old-side (keyword (:active-player old-state))
-                     new-side (keyword (:active-player new-state))
-                     old-click (get-in old-state [old-side :click])
-                     new-click (get-in new-state [new-side :click])
-                     diff-log-entries (- (count (:log new-state)) (count (:log old-state)))
-                     new-logs (join "\n" (map :text (take-last diff-log-entries (:log new-state))))
-                     new-step-type (when (not= old-click new-click)
-                                     (cond
-                                       (not-empty (filter #(= "Game reset to start of turn" (:msg %)) (get-in new-state [:corp :toast])))
-                                       :undo-turn
-
-                                       (and (not= old-side new-side)
-                                            (= :corp new-side))
-                                       :start-of-turn-corp
-
-                                       (and (not= old-side new-side)
-                                            (= :runner new-side))
-                                       :start-of-turn-runner
-
-                                       (:run new-state)
-                                       :run
-
-                                       (some? (re-find (re-pattern #"spends \[Click\] to install")
-                                                       new-logs))
-                                       :install
-
-                                       (some? (re-find (re-pattern #"spends \[Click\] and pays \d+ \[Credits\] to install")
-                                                       new-logs))
-                                       :install
-
-                                       (some? (re-find (re-pattern #"spends \[Click\] to use Corp Basic Action Card to draw 1 card")
-                                                       new-logs))
-                                       :draw
-
-                                       (some? (re-find (re-pattern #"spends \[Click\] to use Runner Basic Action Card to draw 1 card")
-                                                       new-logs))
-                                       :draw
-
-                                       (some? (re-find (re-pattern #"spends \[Click\] to use Corp Basic Action Card to gain 1 \[Credits\]")
-                                                       new-logs))
-                                       :credit
-
-                                       (some? (re-find (re-pattern #"spends \[Click\] to use Runner Basic Action Card to gain 1 \[Credits\]")
-                                                       new-logs))
-                                       :credit
-
-                                       (some? (re-find (re-pattern #"spends \[Click\] and pays 1 \[Credits\] to use Corp Basic Action Card to advance")
-                                                       new-logs))
-                                       :advance
-
-                                       (some? (re-find (re-pattern #"spends \[Click\]\[Click\]\[Click\] to use Corp Basic Action Card to purge all virus counters")
-                                                       new-logs))
-                                       :purge
-
-                                       (some? (re-find (re-pattern #"uses a command: /undo-click")
-                                                       new-logs))
-                                       :undo-click
-
-                                       :else
-                                       :click))]
-                 (when new-step-type
-                   ; add diffs to last timeline step
-                   (reset! replay-timeline (conj (pop @replay-timeline) (assoc (last @replay-timeline) :diffs inter-diffs)))
-                   ; create new timeline step
-                   (swap! replay-timeline conj {:type new-step-type :turn (:turn new-state) :state new-state}))
-
-                 (when (:run new-state) ; If a card starts a run somewhere during the diffs, change the last step type to :run
-                   (reset! replay-timeline (conj (pop @replay-timeline) (assoc (last @replay-timeline) :type :run))))
-
-                 (if new-step-type
-                   (recur new-state diffs [])
-                   (recur new-state diffs inter-diffs))))))))
-
 (defn toggle-play-pause []
   (swap! replay-status assoc :autoplay (not (:autoplay @replay-status))))
 
@@ -257,12 +87,12 @@
       " " (toggle-play-pause)
       "+" (change-replay-speed 200)
       "-" (change-replay-speed -200)
-      "ArrowLeft" (cond (.-ctrlKey e) (replay-step-backward)
-                        (.-shiftKey e) (replay-backward)
-                        :else (replay-log-backward))
-      "ArrowRight" (cond (.-ctrlKey e) (replay-step-forward)
-                         (.-shiftKey e) (replay-forward)
-                         :else (replay-log-forward))
+      "ArrowLeft" (cond (.-ctrlKey e) (run-replay-step! replay/replay-step-backward!)
+                        (.-shiftKey e) (run-replay-step! replay/replay-backward!)
+                        :else (run-replay-step! replay/replay-log-backward!))
+      "ArrowRight" (cond (.-ctrlKey e) (run-replay-step! replay/replay-step-forward!)
+                         (.-shiftKey e) (run-replay-step! replay/replay-forward!)
+                         :else (run-replay-step! replay/replay-log-forward!))
       nil)))
 
 (defn ignore-diff? []
@@ -270,14 +100,38 @@
     (or (= log "typing")
         (s/includes? log "joined the game"))))
 
+(defn start-replay-game []
+  (let [lobby-state (atom {:room "casual"})
+        state (atom {:flash-message ""
+                     :format "casual"
+                     :room "casual"
+                     :side "Any Side"
+                     :gateway-type "Beginner"
+                     :precon "worlds-2012-a"
+                     :title "Replay game"})
+        options (atom {:allow-spectator true
+                       :api-access false
+                       :password ""
+                       :protected false
+                       :save-replay false
+                       :singleton false
+                       :spectatorhands false
+                       :open-decklists false
+                       :replay-id (:gameid @game-state)
+                       :replay-timestamp @replay-status
+                       :timed false
+                       :timer nil})]
+    (leave-game!)
+    (create-game state lobby-state options)))
+
 (defn replay-panel []
   (go (while true
         (while (not (:autoplay @replay-status))
           (<! (timeout 100)))
-        (while (and (ignore-diff?) (not (replay-reached-end?)))
-          (replay-forward))
-        (replay-forward)
-        (if (s/includes? (-> @game-state :log last :text ) "ending their turn")
+        (while (and (ignore-diff?) (not (replay/replay-reached-end? @replay-status @replay-timeline)))
+          (run-replay-step! replay/replay-forward!))
+        (run-replay-step! replay/replay-forward!)
+        (if (s/includes? (-> @game-state :log last :text) "ending their turn")
           (<! (timeout (* 2 (:speed @replay-status))))
           (<! (timeout (:speed @replay-status))))))
 
@@ -303,7 +157,7 @@
          (doall (for [[n {step-type :type turn :turn state :state :as step}] (map-indexed #(vector %1 %2) @replay-timeline)]
                   ^{:key (str "step-" n)}
                   [:div.step {:class [(:active-player state) (when (= n (:n @replay-status)) "active-step") (name step-type)]}
-                   [:div.step-label {:on-click #(replay-jump n)
+                   [:div.step-label {:on-click #(run-replay-step! replay/replay-jump! n)
                                      :data-turn turn
                                      :title (s/replace (capitalize (subs (str step-type) 1)) #"-" " ")
                                      :class (let [annotation (get-in @replay-status [:annotations :clicks (keyword (str n))] nil)]
@@ -333,21 +187,23 @@
                          :title "Decrease Playback speed (-)"} "-"]
          [:button.small {:on-click #(change-replay-speed 200) :type "button"
                          :title "Increase Playback speed (+)"} "+"]
-         [:button.small {:on-click #(replay-step-backward) :type "button"
+         [:button.small {:on-click #(run-replay-step! replay/replay-step-backward!) :type "button"
                          :title "Rewind one click (Ctrl + ← )"} "⏮︎"]
-         [:button.small {:on-click #(replay-log-backward) :type "button"
+         [:button.small {:on-click #(run-replay-step! replay/replay-log-backward!) :type "button"
                          :title "Rewind one log entry (←)"} "⏪︎"]
          [:button.small {:on-click #(toggle-play-pause) :type "button"
                          :title (if (:autoplay @replay-status) "Pause (Space)" "Play (Space)")} (if (:autoplay @replay-status) "⏸ " "▶ ")]
-         [:button.small {:on-click #(replay-log-forward) :type "button"
+         [:button.small {:on-click #(run-replay-step! replay/replay-log-forward!) :type "button"
                          :title "Forward to next log entry (→)"} "⏩︎"]
-         [:button.small {:on-click #(replay-step-forward) :type "button"
+         [:button.small {:on-click #(run-replay-step! replay/replay-step-forward!) :type "button"
                          :title "Forward one click (Ctrl + → )"} "⏭︎"]]
-        (when-not (= "local-replay" (:gameid @game-state)) ; when saved replay
+        (when (and (not= "local-replay" (:gameid @game-state))
+                   (:replay-shared @game-state))
           [:div.sharing
            [:input {:style (if @show-replay-link {:display "inline"} {:display "none"})
                     :type "text" :read-only true
                     :value (generate-replay-link (.-origin (.-location js/window)))}]
+           [:button {:on-click #(start-replay-game)} [tr-span [:replay_start-new-game "Start new game at this point"]]]
            [:button {:on-click #(swap! show-replay-link not)} [tr-span [:replay_share-timestamp "Share timestamp"]]]])])}))
 
 (defn get-remote-annotations [gameid]
@@ -368,17 +224,19 @@
           ; Error handling does not work, as GET tries to parse something despite the connection
           ; timing out -- lostgeek (2021/02/14)
           (tr-non-game-toast  [:log_remote-annotations-fail "Could not get remote annotations."]
-                              "error" {:time-out 3 :close-button true})))))
+                             "error" {:time-out 3 :close-button true})))))
 
 (defn load-remote-annotations [pos]
-  (let [anno (nth (:remote-annotations @replay-status) pos)]
-    (swap! replay-status assoc :annotations anno)))
+  (when (< pos (count (:remote-annotations @replay-status)))
+    (let [anno (nth (:remote-annotations @replay-status) pos)]
+      (swap! replay-status assoc :annotations anno))))
 
 (defn delete-remote-annotations [pos]
-  (let [anno (nth (:remote-annotations @replay-status) pos)]
-    (go (let [{:keys [status json]} (<! (DELETE (str "/profile/history/annotations/delete/" (:gameid @game-state) "?date=" (:date anno))))]
-          (if (= 200 status)
-            (get-remote-annotations (:gameid @game-state)))))))
+  (when (< pos (count (:remote-annotations @replay-status)))
+    (let [anno (nth (:remote-annotations @replay-status) pos)]
+      (go (let [{:keys [status json]} (<! (DELETE (str "/profile/history/annotations/delete/" (:gameid @game-state) "?date=" (:date anno))))]
+            (if (= 200 status)
+              (get-remote-annotations (:gameid @game-state))))))))
 
 (defn publish-annotations []
   (go (let [{:keys [status json]} (<! (PUT (str "/profile/history/annotations/publish/" (:gameid @game-state))
@@ -424,8 +282,8 @@
       (set! (.-value click-notes-elem)
             (get-in @replay-status [:annotations :clicks click :notes] "")))
     (swap! replay-status
-          assoc :selected-note-type
-          (get-in @replay-status [:annotations :clicks click :type] :none))))
+           assoc :selected-note-type
+           (get-in @replay-status [:annotations :clicks click :type] :none))))
 
 (defn update-notes []
   (let [turn-notes-elem (-> js/document (.getElementById "notes-turn"))

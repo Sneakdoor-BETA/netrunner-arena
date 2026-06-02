@@ -10,6 +10,7 @@
    [monger.query :as mq]
    [monger.result :refer [acknowledged?]]
    [ring.util.request :refer [request-url]]
+   [web.analytics :refer [update-analytics]]
    ;;[web.angel-arena.stats :as angel-arena-stats]
    [web.mongodb :refer [->object-id]]
    [web.pages :as pages]
@@ -29,11 +30,14 @@
 (defn clear-deckstats-handler
   "Clear any statistics for a given deck-id contained in a request"
   [{db :system/db
+    {username :username} :user
     {id :id} :path-params}]
-  (if id
-    (if (acknowledged? (mc/update db :decks {:_id (->object-id id)} {$unset {:stats ""}}))
-      (response 200 {:message "Deleted"})
-      (response 403 {:message "Forbidden"}))
+  (if (and id username)
+    (if (mc/find-one-as-map db :decks {:_id (->object-id id) :username username})
+      (if (acknowledged? (mc/update db :decks {:_id (->object-id id)} {$unset {:stats ""}}))
+        (response 200 {:message "Deleted"})
+        (response 403 {:message "Forbidden"}))
+      (response 401 {:message "Unauthorized"}))
     (response 401 {:message "Unauthorized"})))
 
 (defn stats-for-deck
@@ -71,6 +75,32 @@
                         {:stats.loses 1}))]
     record))
 
+(defn- smogon
+  "gets a smogon map for the game"
+  [state player]
+  (let [deck (get-in player [:deck])]
+    (when (= "standard" (:format deck))
+      ;; get all cards by name
+      (let [ident (-> deck :identity :title)
+            cards (->> deck :cards (mapv (fn [{:keys [qty card]}] [(:title card) qty card])))
+            cards (concat cards [[ident 3 (-> deck :identity)]])
+            point-mult (if (= (:_id deck) (:winning-deck-id @state))
+                         3.5
+                         (- (or (:losing-score @state) 0) 3.5))
+            ;; the winner has 3.5 points
+            ;; the loser has however many points they had, -3.5
+            ;; relevant data: in faction, id {used*qty used?}, score
+            card-data (fn [qty card]
+                        [(if (= (:faction card) (-> deck :identity :faction)) qty 0)
+                         {ident [qty 1]}
+                         (* qty point-mult)])
+            mapped (map (fn [[title qty card]]
+                          [title (card-data qty card)])
+                        cards)
+            adjusted-data {:data (into {} mapped)
+                           :players 1}]
+        (update-analytics :smogon adjusted-data)))))
+
 (defn update-deck-stats
   "Update stats for player decks on game ending"
   [db {:keys [original-players ending-players state precon]}]
@@ -81,6 +111,7 @@
         (when (and enable-deckstats deck-id)
           (inc-deck-stats db deck-id {:stats.games-started 1}))))
     (doseq [player ending-players]
+      (smogon state player)
       (inc-deck-stats db (get-in player [:deck :_id]) (deck-record-end state player)))))
 
 (defn inc-game-stats
@@ -117,7 +148,8 @@
       (timbre/error (str "NULL start player side in stats for gameid " gameid))))
   (doseq [player ending-players]
     (if (:side player)
-      (inc-game-stats db (get-in player [:user :_id]) (game-record-end state player))
+      (do (update-analytics :engagement {:games-played 0.5 :users #{(get-in player [:user :username])}})
+          (inc-game-stats db (get-in player [:user :_id]) (game-record-end state player)))
       (timbre/error (str "NULL end player side in stats for gameid " gameid)))))
 
 (defn push-stats-update
@@ -150,6 +182,14 @@
                                        :identity (get-in runner [:deck :identity :title])}})))
 
 (def game-log-coll "game-logs")
+
+(defn- filter-log-for-side [log side]
+  (when (sequential? log)
+    (into [] (keep (fn [entry]
+                     (if (:user entry)
+                       entry                                  ;; old format: message object directly
+                       (or (side entry) (:public entry))))    ;; new format: side-keyed map
+                   log))))
 
 (defn delete-old-replay
   [db {:keys [username]}]
@@ -212,10 +252,16 @@
         (catch Exception e
           (timbre/error e (str "Caught exception saving game stats: " (:stats @state))))))))
 
+(defn strip-opponent-deck-name
+  [game username]
+  (if (= username (get-in game [:corp :player :username]))
+    (update game :runner dissoc :deck-name)
+    (update game :corp dissoc :deck-name)))
+
 (defn history
   [{db :system/db
     {username :username :as user} :user
-    {:keys [skip]} :params}] 
+    {:keys [skip]} :params}]
   (let [skip (or (some-> skip Integer/parseInt) 0)]
     (if (active-user? user)
       (let [games (->> (mq/with-collection db game-log-coll
@@ -229,17 +275,22 @@
             games (map #(update % :creation-date mongo-time-to-utc-string) games)
             games (map #(update % :start-date mongo-time-to-utc-string) games)
             games (map #(update % :end-date mongo-time-to-utc-string) games)
-            ]
+            games (map #(strip-opponent-deck-name % username) games)]
         (response 200 games))
       (response 401 {:message "Unauthorized"}))))
 
 (defn fetch-log
   [{db :system/db
-    user :user
+    {username :username} :user
     {:keys [gameid]} :path-params}]
-  (if (active-user? user)
-    (let [{:keys [log]} (mc/find-one-as-map db :game-logs {:gameid gameid} ["log"])]
-      (response 200 (or log {})))
+  (if username
+    (let [{:keys [corp runner log]} (mc/find-one-as-map db game-log-coll {:gameid gameid} ["corp" "runner" "log"])]
+      (if (or (= username (get-in corp [:player :username]))
+              (= username (get-in runner [:player :username])))
+        (let [side (if (= username (get-in corp [:player :username])) :corp :runner)
+              filtered-log (filter-log-for-side log side)]
+          (response 200 (or filtered-log [])))
+        (response 401 {:message "Unauthorized"})))
     (response 401 {:message "Unauthorized"})))
 
 (defn fetch-annotations
@@ -319,12 +370,20 @@
           (response 404 {:message "Annotations not found"})))
       (response 401 {:message "Unauthorized"}))))
 
+(defn fetch-replay-record
+  "Fetches replay-related game-log fields for a gameid."
+  [db gameid]
+  (mc/find-one-as-map db
+                      :game-logs
+                      {:gameid gameid}
+                      ["corp" "runner" "replay" "replay-shared" "bug-reported"]))
+
 (defn fetch-replay
   [{db :system/db
     {username :username} :user
     {:keys [gameid]} :path-params}]
   (let [{:keys [corp runner replay replay-shared bug-reported]}
-        (mc/find-one-as-map db :game-logs {:gameid gameid} ["corp" "runner" "replay" "replay-shared" "bug-reported"])
+        (fetch-replay-record db gameid)
         replay (or replay {})]
     (if (or bug-reported
             replay-shared
@@ -332,7 +391,9 @@
                 (= username (get-in runner [:player :username]))))
       (if (empty? replay)
         (response 404 {:message "Replay not found"})
-        (json-response 200 replay))
+        (json-response 200 (json/generate-string
+                             (assoc (json/parse-string replay true)
+                                    :replay-shared replay-shared))))
       (response 401 {:message "Unauthorized"}))))
 
 (defn share-replay
@@ -352,6 +413,23 @@
         (response 500 {:message "Server error"})))
     (response 401 {:message "Unauthorized"})))
 
+(defn unshare-replay
+  [{db :system/db
+    {username :username} :user
+    {:keys [gameid]} :path-params}]
+  (if username
+    (try
+      (mc/update db :game-logs
+                 {$and [{:gameid (str gameid)}
+                        {$or [{:corp.player.username username}
+                              {:runner.player.username username}]}]}
+                 {$set {:replay-shared false}})
+      (response 200 {:message "Unshared"})
+      (catch Exception e
+        (timbre/error e "Caught exception unsharing game")
+        (response 500 {:message "Server error"})))
+    (response 401 {:message "Unauthorized"})))
+
 (defn- get-winner-card
   [winner corp runner host]
   (let [default-img (str host "/img/icons/jinteki_167.png")]
@@ -366,15 +444,15 @@
 (defn replay-handler
   [{db :system/db
     {:keys [gameid bugid]}        :path-params
-    {:keys [n d b]}               :query-params
+    {:strs [n d b]}               :query-params
     scheme                        :scheme
     headers                       :headers
     :as req}]
   (let [{:keys [replay winner corp runner title]} (mc/find-one-as-map db :game-logs {:gameid (or gameid bugid)})
         replay (or replay {})
         gameid-str (cond ; different string for replays and bug-reports
-                     gameid (if (and n d) (str gameid "?n=" n "&d=" d) gameid)
-                     bugid (str bugid "?bug-report" (when b (str "&b=" b))))]
+                         gameid (if (and n d) (str gameid "?n=" n "&d=" d) gameid)
+                         bugid (str bugid "?bug-report" (when b (str "&b=" b))))]
     (if (empty? replay)
       (response 404 {:message "Replay not found"})
       (let [corp-user (get-in corp [:player :username] "Unknown")

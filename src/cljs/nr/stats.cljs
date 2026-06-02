@@ -34,11 +34,25 @@
   (update-deck-stats deck-id deckstats)
   (fetch-game-history))
 
+(defn- set-replay-shared [state gameid shared?]
+  (swap! state (fn [s]
+                 (-> s
+                     (assoc :view-game (assoc (:view-game s) :replay-shared shared?))
+                     (update :games (fn [games]
+                                      (mapv #(if (= (:gameid %) gameid)
+                                               (assoc % :replay-shared shared?)
+                                               %)
+                                            games)))))))
+
 (defn share-replay [state gameid]
   (go (let [{:keys [status]} (<! (GET (str "/profile/history/share/" gameid)))]
         (when (= 200 status)
-          (swap! state assoc :view-game
-                 (assoc (:view-game @state) :replay-shared true))))))
+          (set-replay-shared state gameid true)))))
+
+(defn unshare-replay [state gameid]
+  (go (let [{:keys [status]} (<! (GET (str "/profile/history/unshare/" gameid)))]
+        (when (= 200 status)
+          (set-replay-shared state gameid false)))))
 
 (defn- replay-link [game]
   (str (.-origin (.-location js/window)) "/replay/" (:gameid game)))
@@ -62,9 +76,10 @@
       (when (:stats game)
         [build-game-stats (get-in game [:stats :corp]) (get-in game [:stats :runner])])
       [:p
-       (when (and (:has-replay game)
-                  (not (:replay-shared game)))
-         [:button {:on-click #(share-replay state (:gameid game))} (tr [:stats_share "Share replay"])])
+       (when (:has-replay game)
+         (if (:replay-shared game)
+           [:button {:on-click #(unshare-replay state (:gameid game))} (tr [:stats_unshare "Unshare replay"])]
+           [:button {:on-click #(share-replay state (:gameid game))} (tr [:stats_share "Share replay"])]))
        (if (:has-replay game)
          [:span
           [:button {:on-click #(launch-replay game)} (tr [:stats_launch "Launch Replay"])]
@@ -163,9 +178,11 @@
         runner-id (get @all-cards (:identity runner))
         turn-count (if turn turn 0)
         user (:user @app-state)
-        user-win (if (= (str winner) "corp") 
+        user-win (if (= (str winner) "corp")
                 (if (= (:username user) (get-in corp [:player :username])) " (You)" "")
-                (if (= (:username user) (get-in runner [:player :username])) " (You)" ""))]
+                (if (= (:username user) (get-in runner [:player :username])) " (You)" ""))
+        user-is-corp (= (:username user) (get-in corp [:player :username]))
+        user-deck-name (if user-is-corp (:deck-name corp) (:deck-name runner))]
     [:div.gameline {:style {:min-height "auto"
                             :border-color (when winner (if (= user-win " (You)") "#6AB56A" "#Ea7d7f"))}}
      [:button.float-right
@@ -186,13 +203,19 @@
       [:span.player
        [avatar (:player corp) {:opts {:size 24}}]
        (get-in corp [:player :username]) " - "
-       (faction-icon-memo (:faction corp-id) (:title corp-id)) " " (:title corp-id)]]
+       [:span.identity-deck
+        [:span (faction-icon-memo (:faction corp-id) (:title corp-id)) " " (:title corp-id)]
+        (when (and user-is-corp user-deck-name)
+          [:span.deck-name user-deck-name])]]]
 
      [:div
       [:span.player
        [avatar (:player runner) {:opts {:size 24}}]
        (get-in runner [:player :username]) " - "
-       (faction-icon-memo (:faction runner-id) (:title runner-id)) " " (:title runner-id)]]
+       [:span.identity-deck
+        [:span (faction-icon-memo (:faction runner-id) (:title runner-id)) " " (:title runner-id)]
+        (when (and (not user-is-corp) user-deck-name)
+          [:span.deck-name user-deck-name])]]]
 
      (when winner
        [:h4 (tr [:stats_winner "Winner"] {:winner (tr-side winner)}) (str user-win)])]))

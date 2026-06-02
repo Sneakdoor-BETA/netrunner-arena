@@ -3,7 +3,7 @@
    [clojure.test :refer :all]
    [game.core :as core]
    [game.core.subtypes :refer :all]
-   [game.macros :refer [req]]
+   [game.macros :refer [effect]]
    [game.test-framework :refer :all]))
 
 (deftest subtypes-for-card-test
@@ -42,6 +42,6 @@
     (testing "Returns true when at least 1 card is updated"
       (do-game state
         (swap! state assoc :effects [{:type :gain-subtype
-                                      :req (req (= "Stimhack" (:title target)))
+                                      :req (effect (= "Stimhack" (:title target)))
                                       :value "Mod"}])
         (is (update-all-subtypes state))))))

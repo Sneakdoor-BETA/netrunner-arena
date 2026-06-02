@@ -9,7 +9,7 @@
    [game.core.gaining :refer [lose]]
    [game.core.props :refer [add-counter]]
    [game.core.update :refer [update!]]
-   [game.macros :refer [continue-ability req wait-for]]
+   [game.macros :refer [continue-ability effect wait-for]]
    [game.utils :refer [enumerate-str in-coll? quantify same-card?]]))
 
 (defn- pick-counter-triggers
@@ -44,7 +44,7 @@
                           (installed? %)
                           (runner? %)
                           (pos? (get-counters % :virus)))}
-    :effect (req (let [target (update! state :runner (update-in target [:counter :virus] dec))
+    :effect (effect (let [target (update! state :runner (update-in target [:counter :virus] dec))
                        selected-cards (update selected-cards (:cid target)
                                               ;; Store card reference and number of counters picked
                                               ;; Overwrite card reference each time
@@ -62,10 +62,10 @@
                        (pick-counter-triggers state side eid selected-cards selected-cards :virus counter-count message 0)))))
     :cancel {:async true
              :effect (if target-count
-                       (req (doseq [{:keys [card number]} (vals selected-cards)]
+                       (effect (doseq [{:keys [card number]} (vals selected-cards)]
                               (update! state :runner (update-in (get-card state card) [:counter :virus] + number)))
                             (complete-with-result state side eid :cancel))
-                       (req (let [message (enumerate-str (map #(let [{:keys [card number]} %
+                       (effect (let [message (enumerate-str (map #(let [{:keys [card number]} %
                                                                      title (:title card)]
                                                                  (str (quantify number "virus counter") " from " title))
                                                               (vals selected-cards)))]
@@ -86,7 +86,7 @@
 (defn- take-counters-of-type
   "This builds an effect to remove a single counter of the given type, including credits. This does not fire any events."
   [counter-type]
-  (req (update! state side (assoc-in card [:counter counter-type] (dec (get-counters card counter-type))))
+  (effect (update! state side (assoc-in card [:counter counter-type] (dec (get-counters card counter-type))))
        (complete-with-result state side eid 1)))
 
 (defn- use-card [uses card async-res]
@@ -111,12 +111,12 @@
          discount-provider (filter #(get-in (card-def %) [:interactions :pay-credits :cost-reduction]) provider-cards)]
      (if (empty? discount-provider)
        {:async true
-        :effect (req (complete-with-result state side eid {:reduction counter-count
+        :effect (effect (complete-with-result state side eid {:reduction counter-count
                                                            :targets (keep #(:card (second %)) selected-cards)}))}
        {:async true
         :prompt (str "Choose a cost-reducing card")
         :choices {:card #(in-coll? (map :cid discount-provider) (:cid %))}
-        :effect (req (let [pay-credits-type (-> target card-def :interactions :pay-credits :type)
+        :effect (effect (let [pay-credits-type (-> target card-def :interactions :pay-credits :type)
                            pay-function (if (= :custom pay-credits-type)
                                           (-> target card-def :interactions :pay-credits :custom)
                                           (take-counters-of-type pay-credits-type))
@@ -133,7 +133,7 @@
                                                      (use-card uses providing-card async-result))
                                                    card targets))))
         :cancel {:async true
-                 :effect (req (complete-with-result state side eid {:reduction counter-count
+                 :effect (effect (complete-with-result state side eid {:reduction counter-count
                                                                     :targets (keep #(:card (second %)) selected-cards)}))}}))))
 
 (defn pick-credit-providing-cards
@@ -162,7 +162,7 @@
          ;; note - this allows holding the shift key while clicking a card to keep picking that card while possible
          ;; ie: taking 5cr from miss bones with one click, instead of waiting for 5 server round-trips
          should-auto-repeat? (fn [state side] (get-in @state [side :shift-key-select] nil))
-         pay-rest (req
+         pay-rest (effect
                     (if (and (<= (- target-count counter-count)
                                  (if (can-use-credits? state side) (get-in @state [side :credit]) 0))
                              (<= stealth-target stealth-count))
@@ -205,7 +205,7 @@
        (if (and pre-chosen (or (in-coll? (map :cid provider-cards) (:cid pre-chosen))
                                (= pre-chosen :bad-publicity)))
          {:async true
-          :effect (req
+          :effect (effect
                     (if (= target :bad-publicity)
                       (continue-ability
                         state side
@@ -243,7 +243,7 @@
                        ")")
           :offer-bad-pub? (when can-use-bad-pub? bad-pub-available)
           :choices {:card #(in-coll? (map :cid provider-cards) (:cid %))}
-          :effect (req (if (= target :bad-publicity)
+          :effect (effect (if (= target :bad-publicity)
                          (continue-ability
                            state side
                            (pick-credit-providing-cards

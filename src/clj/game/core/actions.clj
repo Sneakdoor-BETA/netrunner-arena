@@ -28,7 +28,7 @@
     [game.core.to-string :refer [card-str]]
     [game.core.toasts :refer [toast]]
     [game.core.update :refer [update!]]
-    [game.macros :refer [continue-ability req wait-for]]
+    [game.macros :refer [continue-ability effect wait-for]]
     [game.utils :refer [dissoc-in quantify remove-once same-card? same-side? server-cards to-keyword]]
     [taoensso.timbre :as timbre]))
 
@@ -98,9 +98,10 @@
   ([state side eid {:keys [card] ability-idx :ability :as args}]
    (let [card (get-card state card)
          args (assoc args :card card)
-         ability (nth (:abilities card) ability-idx)
+         ability (nth (:abilities card) ability-idx nil)
          blocking-prompt? (not (no-blocking-prompt? state side))
-         cannot-play (or (:disabled card)
+         cannot-play (or (nil? ability)
+                         (:disabled card)
                          ;; cannot play actions during runs
                          (and (:action ability) (:run @state))
                          ;; while resolving another ability or promppt
@@ -142,7 +143,7 @@
         {:card card
          :ability {:action true
                    :async true
-                   :effect (req (play-instant state side eid (assoc card :rfg-instead-of-trashing true) {:base-cost flashback-cost :as-flashback true}))}
+                   :effect (effect (play-instant state side eid (assoc card :rfg-instead-of-trashing true) {:base-cost flashback-cost :as-flashback true}))}
          :ability-idx 0
          :targets []}))))
 
@@ -320,8 +321,9 @@
       :else
       (prompt-error "in an unknown prompt type" prompt args))))
 
-(defn- update-first [selection target eid c]
+(defn- update-first
   "This ensures that updating the selected set of cards doesn't mix up prompts (usually when the user does something silly, or the front-end/back-end are out of sync"
+  [selection target eid c]
   (mapv (fn [s]
           (if (= (-> s :ability :eid :eid) (:eid eid))
             (update s :cards
@@ -403,7 +405,7 @@
 (defn- play-heap-breaker-auto-pump-and-break-impl
   [state side sub-groups-to-break current-ice]
   {:async true
-   :effect (req
+   :effect (effect
              (let [subs-to-break (first sub-groups-to-break)
                    sub-groups-to-break (rest sub-groups-to-break)]
                (doseq [sub subs-to-break]
@@ -427,7 +429,7 @@
         can-pump (fn [ability]
                    (when (and (:heap-breaker-pump ability)
                               (not (any-effects state side :prevent-paid-ability true? card [ability])))
-                     ((:req ability (req true)) state side eid card nil)))
+                     ((:req ability (effect true)) state side eid card nil)))
         breaker-ability (some #(when (can-pump %) %) (:abilities (card-def card)))
         pump-strength-at-once (when breaker-ability
                                 (:heap-breaker-pump breaker-ability))
@@ -482,7 +484,7 @@
 (defn- play-auto-pump-and-break-impl
   [state side payment-eid sub-groups-to-break current-ice break-ability]
   {:async true
-   :effect (req
+   :effect (effect
              (let [subs-to-break (first sub-groups-to-break)
                    sub-groups-to-break (rest sub-groups-to-break)]
                (doseq [sub subs-to-break]

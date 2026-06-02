@@ -71,7 +71,7 @@
       (-> ability
           (dissoc :psi :once :req)
           (assoc :async true
-                 :effect (effect (psi-game eid card psi targets))))
+                 :effect (effect (psi-game state side eid card psi targets))))
       card targets)
     (effect-completed state side eid)))
 

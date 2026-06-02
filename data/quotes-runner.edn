@@ -601,7 +601,13 @@
   "Weyland Consortium: Builder of Nations"
   ["They eradicate culture to build their towers. The only nation they've ever built is a throne for the highest bidder to oppress the masses."]}
  "Virtual Intelligence, P.I.: \"You Can Call Me Vic\""
- {"Default" ["I'll take the case."]}
+ {"Default" ["I'll take the case."]
+  "Haas-Bioroid"
+  ["A chromed up dame came to my office, then I realized she wasn't just chromed."]
+  "Jinteki" ["This ice makes me wish I could lose myself in a bottle."]
+  "NBN" ["Got word of shady business down at the rag."]
+  "Weyland Consortium"
+  ["Listen kid, everything's personal when you are dealing with Weyland."]}
  "Whizzard: Master Gamer"
  {"Default"
   ["This game is played in four dimensions. Never interupt your opponent while they are making a mistake."]

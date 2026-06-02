@@ -17,7 +17,7 @@
     [game.core.toasts :refer [toast]]
     [game.core.update :refer [update!]]
     [game.core.winning :refer [flatline]]
-    [game.macros :refer [continue-ability req wait-for]]
+    [game.macros :refer [continue-ability effect wait-for]]
     [game.utils :refer [dissoc-in enumerate-str quantify]]
     [jinteki.utils :refer [other-side]]
     [clojure.string :as string]))
@@ -155,7 +155,7 @@
                        :all true}
              :waiting-prompt true
              :async true
-             :effect (req (system-msg state side
+             :effect (effect (system-msg state side
                                       (str "discards "
                                            (if (= :runner side)
                                              (enumerate-str (map :title targets))
