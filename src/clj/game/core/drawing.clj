@@ -10,7 +10,7 @@
    [game.core.say :refer [system-msg]]
    [game.core.set-aside :refer [set-aside-for-me get-set-aside]]
    [game.core.winning :refer [win-decked]]
-   [game.macros :refer [continue-ability msg req wait-for]]
+   [game.macros :refer [continue-ability effect msg req wait-for]]
    [game.utils :refer [quantify safe-zero?]]
    [jinteki.utils :refer [other-side]]))
 
@@ -51,7 +51,7 @@
      ;; The req catches draw events that happened before the card was installed
      :req (req (first-event? state side event))
      :once :per-turn
-     :effect (req (draw-bonus state side n))}))
+     :effect (effect (draw-bonus state side n))}))
 
 (defn draw
   "Draw n cards from :deck to :hand."
@@ -119,10 +119,11 @@
      (continue-ability
        state side
        {:optional {:prompt (str "Draw " (quantify n "card") "?")
+                   :waiting-prompt true
                    :yes-ability {:async true
                                  :msg (msg "draw " (quantify n " card"))
-                                 :effect (req (draw state side eid n))}
-                   :no-ability {:effect (req (system-msg state side (str "declines to use " (get-title card) " to draw cards")))}}}
+                                 :effect (effect (draw state side eid n))}
+                   :no-ability {:effect (effect (system-msg state side (str "declines to use " (get-title card) " to draw cards")))}}}
        card nil))))
 
 (defn draw-up-to
@@ -133,13 +134,13 @@
      (continue-ability
        state side
        {:prompt (str "Draw how many cards?" (when-not allow-zero-draws " (minimum 1)"))
-        :choices {:number (req n)
-                  :max (req n)
-                  :default (req n)}
+        :choices {:number (effect n)
+                  :max (effect n)
+                  :default (effect n)}
         :waiting-prompt true
         :async true
         :msg (msg "draw " (quantify (or target 0) "card"));
-        :effect (req
+        :effect (effect
                   (if (and (not target) (not allow-zero-draws))
                     (draw-up-to state side (make-eid state eid) n args)
                     (draw state side eid target args)))}

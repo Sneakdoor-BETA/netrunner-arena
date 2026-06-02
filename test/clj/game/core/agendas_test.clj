@@ -3,13 +3,13 @@
    [clojure.test :refer :all]
    [game.core :as core]
    [game.core.agendas :refer [agenda-points]]
-   [game.macros :refer [req]]
+   [game.macros :refer [effect]]
    [game.test-framework :refer :all]))
 
 (defmethod core/defcard-impl "jnet Test Card" [_] {})
 (defmethod core/defcard-impl "jnet Test Card 2" [_]
-  {:agendapoints-corp (req 5)
-   :agendapoints-runner (req 10)})
+  {:agendapoints-corp (effect 5)
+   :agendapoints-runner (effect 10)})
 
 (deftest agenda-points-test
   (before-each [state (new-game)

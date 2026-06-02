@@ -82,7 +82,6 @@
    access-card
    access-cost
    access-cost-bonus
-   access-end
    access-helper-archives
    access-helper-hq
    access-helper-rd
@@ -585,6 +584,7 @@
 
 (expose-vars
   [game.core.payment
+   ->c
    add-cost-label-to-ability
    build-cost-label
    build-cost-string
@@ -829,9 +829,8 @@
 (expose-vars
   [game.macros
    continue-ability
-   effect
    msg
-   req
+   effect
    wait-for
    when-let*])
 

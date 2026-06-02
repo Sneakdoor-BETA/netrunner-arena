@@ -157,10 +157,10 @@
            {:optional
             {:prompt "Pay the alternative Rez cost?"
              :yes-ability {:async true
-                           :effect (effect (rez eid card (merge args {:ignore-cost true
+                           :effect (effect (rez state side eid card (merge args {:ignore-cost true
                                                                       :alternative-cost alternative-cost})))}
              :no-ability {:async true
-                          :effect (effect (rez eid card (merge args {:declined-alternative-cost true})))}}}
+                          :effect (effect (rez state side eid card (merge args {:declined-alternative-cost true})))}}}
            card nil)
          (complete-rez state side eid card args))
        (effect-completed state side eid)))))

@@ -110,7 +110,7 @@
          (when (and (= side :runner)
                     (= :all amount))
            (lose state :runner :run-credit :all))
-         (trigger-event-sync state side eid (if (= :corp side) :corp-credit-loss :runner-credit-loss) amount args))
+         (trigger-event-sync state side eid (if (= :corp side) :corp-credit-loss :runner-credit-loss) nil))
      (effect-completed state side eid))))
 
 (defn gain-clicks

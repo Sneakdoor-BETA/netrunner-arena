@@ -1,0 +1,87 @@
+(ns hooks.netrunner
+  (:require
+    [clj-kondo.hooks-api :as api]))
+
+(def forms
+  (with-meta
+    (api/coerce
+     '[target (or 1 nil {} :foo "a" 'a [] () #{} false)
+       context {}
+       runner {}
+       corp {}
+       run {}
+       run-server {}
+       run-ices []
+       run-position 1
+       current-ice {}
+       corp-reg {}
+       corp-reg-last {}
+       runner-reg {}
+       runner-reg-last {}
+       installed :servers
+       remotes []
+       servers []
+       unprotected (boolean :a)
+       runnable-servers []
+       hq-runnable (or :hq nil)
+       rd-runnable (or :rd nil)
+       archives-runnable (or :archives nil)
+       tagged (boolean :a)
+       this-card-run (boolean :card)
+       this-card-is-run-source (boolean :card)
+       this-server (boolean :server)
+       corp-currently-drawing (seq [])
+       runner-currently-drawing (seq [])])
+    {:clj-kondo/ignore [:unused-binding]}))
+
+(defn build-let [body]
+  (api/list-node
+   (list* (api/token-node 'let) forms body)))
+
+(def effect-args
+  (with-meta
+    (api/coerce '[state side eid card targets])
+    {:clj-kondo/ignore [:unused-binding]}))
+
+(defn build-fn [body]
+  (api/list-node
+   [(api/token-node 'fn)
+    effect-args
+    body]))
+
+(defn effect [{:keys [node]}]
+  (let [body (next (:children node))
+        new-node (build-fn (build-let body))]
+    {:node (with-meta new-node node)}))
+
+(defn msg [{:keys [node]}]
+  (let [body (with-meta
+               (api/list-node
+                (list* (api/token-node 'str)
+                       (next (:children node))))
+               {:clj-kondo/ignore [:redundant-str-call]})
+        new-node (build-fn (build-let [body]))]
+    {:node (with-meta new-node (meta node))}))
+
+(defn req [{:keys [node]}]
+  (let [body (with-meta
+               (api/list-node
+                (list* (api/token-node 'and)
+                       (next (:children node))))
+               {:clj-kondo/ignore [:single-logical-operand]})
+        new-node (build-fn (build-let [body]))]
+    {:node (with-meta new-node (meta node))}))
+
+(defn wait-for [{:keys [node]}]
+  (let [[_wait-for action & body] (:children node)
+        bind? (api/vector-node? action)
+        new-node (api/list-node
+                  (list*
+                   (api/token-node 'let)
+                   (if bind?
+                     (api/vector-node [(first (:children action)) (second (:children action))])
+                     (api/vector-node [(vary-meta (api/token-node 'async-result) assoc :clj-kondo/ignore [:unused-binding])
+                                       (vary-meta action assoc :clj-kondo/ignore [:invalid-arity])]))
+                   body))]
+    {:node (with-meta new-node
+             (assoc (meta node) :clj-kondo/ignore [:invalid-arity]))}))

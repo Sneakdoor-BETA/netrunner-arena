@@ -14,7 +14,7 @@
     [game.core.revealing :refer [reveal]]
     [game.core.say :refer [play-sfx system-msg implementation-msg]]
     [game.core.update :refer [update!]]
-    [game.macros :refer [continue-ability msg req wait-for]]
+    [game.macros :refer [continue-ability effect msg req wait-for]]
     [game.utils :refer [same-card? to-keyword]]))
 
 (defn async-rfg
@@ -168,7 +168,7 @@
                       {:msg (msg "reveal that they are unable to play " (:title card))
                        :cost (when (:base-cost args) [(:base-cost args)])
                        :async true
-                       :effect (req (update! state side (-> returned-card
+                       :effect (effect (update! state side (-> returned-card
                                                             (dissoc :seen)
                                                             (assoc
                                                               :cid (:cid card)
@@ -193,10 +193,10 @@
             {:prompt (str "Pay the additional costs to play " (:title card) "?")
              :yes-ability {:async true
                            :req (req (can-pay? state side eid (get-card state card) nil costs))
-                           :effect (req (continue-play-instant state side (assoc eid :source card :source-type :play) c costs args))}
+                           :effect (effect (continue-play-instant state side (assoc eid :source card :source-type :play) c costs args))}
              :no-ability {:cost (when (:base-cost args) [(:base-cost args)])
                           :async true
-                          :effect (req (reveal state side eid card)) ;;TODO - use reveal-explicit later?
+                          :effect (effect (reveal state side eid card)) ;;TODO - use reveal-explicit later?
                           :msg (msg "reveal " (:title card) ", and refuse to pay the additional cost to play " (:title card))}}}
            card nil)
          (continue-play-instant state side eid card costs args))
@@ -206,5 +206,5 @@
           :cost (when (:base-cost args) [(:base-cost args)])
           :async true
           ;;TODO - use reveal-explicit later?
-          :effect (req (reveal state side eid card))}
+          :effect (effect (reveal state side eid card))}
          card nil)))))

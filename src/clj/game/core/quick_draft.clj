@@ -10,7 +10,7 @@
    [jinteki.utils :refer [other-side]]
    [jinteki.chimera :refer [corp-bans]]
    [game.core.eid :refer [effect-completed]]
-   [game.macros :refer [continue-ability req msg wait-for]]
+   [game.macros :refer [continue-ability effect msg wait-for]]
    [game.utils :refer [quantify server-card same-side?]]))
 
 (def runner-bans
@@ -455,7 +455,7 @@
   {:prompt (picks-remaining prompt remaining)
    :choices ["OK"]
    :async true
-   :effect (req (add-cards state side cards)
+   :effect (effect (add-cards state side cards)
                 (effect-completed state side eid))})
 
 (defn- deck-prompt
@@ -464,7 +464,7 @@
    :choices choices
    :async true
    :waiting-prompt true
-   :effect (req
+   :effect (effect
              (add-cards state side qty target)
              (effect-completed state side eid))})
 
@@ -473,13 +473,13 @@
   (let [runner-prompt {:prompt (picks-remaining (:prompt runner) (inc remaining))
                        :choices (:choices runner)
                        :waiting-prompt true
-                       :effect (req (system-msg state side (str "selects " target " as their identity"))
+                       :effect (effect (system-msg state side (str "selects " target " as their identity"))
                                     (set-id state side target))}]
     {:prompt (str (:prompt corp) " - you have " remaining " picks remaining")
      :choices (:choices corp)
      :waiting-prompt true
      :async true
-     :effect (req (system-msg state side (str "selects " target " as their identity"))
+     :effect (effect (system-msg state side (str "selects " target " as their identity"))
                   (set-id state side target)
                   (continue-ability state :runner runner-prompt nil nil))}))
 

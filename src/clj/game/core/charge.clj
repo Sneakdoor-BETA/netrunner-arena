@@ -4,7 +4,7 @@
    [game.core.card :refer :all]
    [game.core.eid :refer [effect-completed]]
    [game.core.say :refer [system-msg]]
-   [game.macros :refer [req msg effect]]
+   [game.macros :refer [effect msg]]
    [game.core.props :refer [add-counter]]))
 
 (defn can-charge
@@ -35,4 +35,4 @@
       :choices {:card #(can-charge state side %)}
       :async true
       :msg (msg "charge " (:title target) (when (> n 1) (str n " times")))
-      :effect (req (charge-card state side eid target n))})))
+      :effect (effect (charge-card state side eid target n))})))

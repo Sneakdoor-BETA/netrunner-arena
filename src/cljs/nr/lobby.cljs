@@ -1,26 +1,27 @@
 (ns nr.lobby
   (:require-macros [cljs.core.async.macros :refer [go]])
   (:require
-   [cljs.core.async :refer [<!] :as async]
-   [clojure.set :refer [difference union]]
-   [clojure.string :as str]
-   [nr.ajax :refer [GET]]
-   [nr.angel-arena.lobby :as angel-arena]
-   [nr.appstate :refer [app-state current-gameid]]
-   [nr.auth :refer [authenticated] :as auth]
-   [nr.game-row :refer [game-row]]
-   [nr.local-storage :as ls]
-   [nr.gameboard.actions :refer [leave-game!]]
-   [nr.new-game :refer [create-new-game]]
-   [nr.password-game :refer [password-game]]
-   [nr.pending-game :refer [pending-game]]
-   [nr.replay-game :refer [start-replay-div]]
-   [nr.sounds :refer [play-sound resume-sound]]
-   [nr.translations :refer [tr tr-span tr-element tr-format]]
-   [nr.utils :refer [cond-button non-game-toast tr-non-game-toast slug->format]]
-   [nr.ws :as ws]
-   [reagent.core :as r]
-   [taoensso.sente :as sente]))
+    [cljs.core.async :refer [<!] :as async]
+    [clojure.set :refer [difference union]]
+    [clojure.string :as str]
+    [game.replay :as game-replay]
+    [nr.ajax :refer [GET]]
+    [nr.angel-arena.lobby :as angel-arena]
+    [nr.appstate :refer [app-state current-gameid]]
+    [nr.auth :refer [authenticated] :as auth]
+    [nr.game-row :refer [game-row]]
+    [nr.local-storage :as ls]
+    [nr.gameboard.actions :refer [leave-game!]]
+    [nr.new-game :refer [create-new-game]]
+    [nr.password-game :refer [password-game]]
+    [nr.pending-game :refer [pending-game]]
+    [nr.replay-game :refer [start-replay-div]]
+    [nr.sounds :refer [play-sound resume-sound]]
+    [nr.translations :refer [tr tr-span tr-element tr-format]]
+    [nr.utils :refer [cond-button non-game-toast tr-non-game-toast slug->format]]
+    [nr.ws :as ws]
+    [reagent.core :as r]
+    [taoensso.sente :as sente]))
 
 (defmethod ws/event-msg-handler :lobby/list [{data :?data}]
   (swap! app-state assoc :games data))
@@ -75,12 +76,7 @@
              (case status
                200
                (let [replay (js->clj json :keywordize-keys true)
-                     history (:history replay)
-                     init-state (first history)
-                     init-state (assoc init-state :gameid gameid)
-                     init-state (assoc-in init-state [:options :spectatorhands] true)
-                     diffs (rest history)
-                     init-state (assoc init-state :replay-diffs diffs)]
+                     init-state (game-replay/replay-init-state-from-history replay gameid)]
                  (ws/event-msg-handler-wrapper
                    {:id :game/start
                     :?data (.stringify js/JSON (clj->js
@@ -140,16 +136,16 @@
                visible-formats (r/cursor app-state [:visible-formats])]
     (let [room-games (filter #(= (:room %) @room) @games)
           filtered-games (filter-games @user room-games @visible-formats)]
-    [:<>
-     [:div.game-count
-      [tr-element :h4 (if (= (count slug->format) (count @visible-formats)) [:lobby_game-count] [:lobby_game-count-filtered]) {:cnt (count filtered-games)}]]
-     [:div.game-list
-      (if (empty? filtered-games)
-        [tr-element :h4 [:lobby_no-games "No games"]]
-        (doall
-          (for [game filtered-games]
-            ^{:key (:gameid game)}
-            [game-row state game @current-game @editing])))]])))
+      [:<>
+       [:div.game-count
+        [tr-element :h4 (if (= (count slug->format) (count @visible-formats)) [:lobby_game-count] [:lobby_game-count-filtered]) {:cnt (count filtered-games)}]]
+       [:div.game-list
+        (if (empty? filtered-games)
+          [tr-element :h4 [:lobby_no-games "No games"]]
+          (doall
+            (for [game filtered-games]
+              ^{:key (:gameid game)}
+              [game-row state game @current-game @editing])))]])))
 
 (defn format-visible? [slug] (contains? (:visible-formats @app-state) slug))
 
@@ -210,17 +206,17 @@
 
 (defn button-bar [s games current-game user visible-formats]
   [:div.button-bar
-    [:div.rooms
-     [:div#filter.dropdown
-      [:a.dropdown-toggle {:href "" :data-toggle "dropdown"}
-       [tr-span [:lobby_filter "Filter"]]
-       [:b.caret]]
-       [:div.dropdown-menu.blue-shade
-        (doall (for [[k] slug->format]
-                 ^{:key k}
-                 [format-toggle k (contains? visible-formats k)]))]]
-     [room-tab user s games "casual" "casual"]
-     [room-tab user s games "competitive" "tournament"]]
+   [:div.rooms
+    [:div#filter.dropdown
+     [:a.dropdown-toggle {:href "" :data-toggle "dropdown"}
+      [tr-span [:lobby_filter "Filter"]]
+      [:b.caret]]
+     [:div.dropdown-menu.blue-shade
+      (doall (for [[k] slug->format]
+               ^{:key k}
+               [format-toggle k (contains? visible-formats k)]))]]
+    [room-tab user s games "casual" "casual"]
+    [room-tab user s games "competitive" "tournament"]]
    (when-not (= "angel-arena" (:room @s))
      [:div.lobby-buttons
       [new-game-button s games current-game user]

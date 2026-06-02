@@ -1,3 +1,59 @@
+about_about = 关于
+
+about_active-contributors = 当前的活跃贡献者。
+
+about_alt-art-management = 管理/处理 jinteki.net 社区使用的替代画作。如果您希望您的画作出现在 jinteki.net 上，请联系我们中的一位成员。
+
+about_bug-reports = 错误报告和功能建议可以通过[link]提交。
+
+about_content-creators = 内容创作者
+
+about_development = 开发
+
+about_disclaimer = 免责声明
+
+about_donations = 捐赠
+
+about_donations-long = 非常感谢您的捐赠，这将有助于维持快速的服务器运行。您可以通过 PayPal 或比特币为本项目提供资金支持。作为感谢，您的账户将解锁替代画作卡牌。请在捐赠时注明您的用户名。
+
+about_front-end-client = 前端客户端：
+
+about_founded-by = 本网站由来自比利时的狂热矩阵潜袭玩家 @mtgred 创立，旨在提供一个在线构筑和测试矩阵潜袭卡组的优秀平台。
+
+about_founder-attribution = 创始人，最初的唯一开发者。已退休。
+
+about_game-engine = 游戏引擎：
+
+about_high-res-images = FFG 卡牌的高清扫描图。
+
+about_maintainer-attribution = 项目维护者，首席开发者。
+
+about_open-source = 代码已开源，可在[link]获取。
+
+about_past-contributors = 过往众多贡献者
+
+about_server = 服务器：
+
+about_start-of-game-quotes = 游戏开始时闪屏界面中的公司和潜袭者的引言。
+
+about_software-development-team = 软件开发团队
+
+about_thank-you = 衷心感谢所有捐赠者。非常感谢您的贡献和暖心话语，您的支持帮助我们维持了快速的服务器。
+
+about_tech-stack = 技术栈
+
+about_translated-images = 处理/管理翻译后的 NSG 卡牌图片，以及社区赛事的卡背图片。
+
+about_netrunner-trademark = Netrunner 是 Fantasy Flight Publishing, Inc. 和/或 Wizards of the Coast LLC 的商标。
+
+about_ui-translators = 用户界面翻译者
+
+about_unaffiliated = 本网站与 Fantasy Flight Games 或 Wizards of the Coast 无任何关联。
+
+about_url-github = Github
+
+about_url-here = 此处
+
 annotations_available-annotations = 可用注释
 
 annotations_clear = 清除本地注释
@@ -16,9 +72,9 @@ annotations_save-local = 保存
 
 annotations_turn-placeholder = 关于此回合的注释
 
-card-backs_nsg-card-back = NSG 牌背
-
 card-backs_ffg-card-back = FFG 牌背
+
+card-backs_nsg-card-back = NSG 牌背
 
 card-browser-form_faction = 派系
 
@@ -96,6 +152,7 @@ card-type_name = {$type ->
     [program] 程序
     [resource] 资源
     [upgrade] 升级
+    [rules-insert] 规则插入
     *[unknown] 未知卡牌类别 ({$type})
 }
 
@@ -138,9 +195,18 @@ deck-builder_card-name = 卡牌名称
 
 deck-builder_clear-stats = 清除统计数据
 
+deck-builder_cleanup-decks = 清除牌组...
+
+deck-builder_cannot-be-undone = 此操作无法恢复。
+
 deck-builder_completed = 完成: {$completed}
 
 deck-builder_confirm-delete = 确认删除
+
+deck-builder_confirm-delete-multiple = 删除{$cnt ->
+    [one] {$cnt}个所选牌组
+    *[other] {$cnt}个所选牌组
+}?
 
 deck-builder_copy = 复制
 
@@ -171,6 +237,20 @@ deck-builder_decklist = 牌表
 deck-builder_decklist-inst = （在此输入或粘贴牌表，系统会自动解析）
 
 deck-builder_delete = 删除
+
+deck-builder_delete-selected = 删除所选
+
+deck-builder_deleted-decks-success = 已删除{$cnt ->
+    [one] {$cnt}个牌组
+    *[other] {$cnt}个牌组
+}
+
+deck-builder_deletion-success-and-or-failure = 已删除{$success ->
+    [one] {$success}个牌组
+    *[other] {$success}个牌组
+}。{$failed}个牌组删除失败。
+
+deck-builder_deletion-in-progress = 牌组删除中，离开此页面可能会出现问题。
 
 deck-builder_edit = 编辑
 
@@ -218,15 +298,19 @@ deck-builder_reset = 重置
 
 deck-builder_save = 保存
 
-deck-builder_why = 为什么？
-
-deck-builder_won = 胜利: {$won} ({NUMBER($percent, style: "percent")})
-
-deck-builder_view-options = 查看选项
+deck-builder_select-all = 选择全部
 
 deck-builder_show-credit-cost = 显示信用点费用
 
 deck-builder_show-memory-cost = 显示内存费用
+
+deck-builder_unselect-all = 取消选择全部
+
+deck-builder_view-options = 查看选项
+
+deck-builder_why = 为什么？
+
+deck-builder_won = 胜利: {$won} ({NUMBER($percent, style: "percent")})
 
 diagrams_run-timing_approach = 6.9.2: 接驳防火墙阶段
 
@@ -395,11 +479,13 @@ format_name = {$format ->
     [all] 全部
     [any-format] 任意赛制
     [casual] 休闲
+    [chimera] 奇美拉
     [classic] 经典
     [core-experience] 核心体验
     [core] 核心体
     [eternal] 永久
     [preconstructed] 预构筑
+    [quick-draft] 快速轮抽
     [socr] SOCR
     [standard] 标准
     [startup] 新启
@@ -483,7 +569,7 @@ game_current = 局势
 
 game_current-phase = 当前阶段
 
-game_destroyed = Destroyed
+game_destroyed = 被销毁
 
 game_draw = 抽牌
 
@@ -506,9 +592,13 @@ game_game-start = 对战开始时间: {$timestamp}
 
 game_grip = 操控器
 
-game_heap = 堆阵 ({$cnt})
+game_grip-count = 操控器({$cnt}张)
+
+game_heap = 堆阵({$cnt}张)
 
 game_hq = 总部
+
+game_hq-count = 总部({$cnt}张)
 
 game_inactivity = 对战因长期无活动而关闭
 
@@ -559,7 +649,7 @@ game_prompt = {$msg ->
     [archives] 档案库
     [derez] 关闭
     [expend] 消耗
-    [cast-as-a-sorcery] Cast as a Sorcery
+    [cast-as-a-sorcery] 作为法术释放
     [hq] 总部
     [new-remote] 新远程
     [r-d] 研发中心
@@ -585,6 +675,12 @@ game_rez-all = 激活全部
 game_rfg = 移出游戏
 
 game_rnd = 研发中心
+
+game_rnd-count = 研发中心({$cnt}张)
+
+game_round-end = 轮次结束: {$timestamp}
+
+game_round-extension = (包含{$minutes}分钟延迟)
 
 game_run = 潜袭
 
@@ -618,6 +714,8 @@ game_spec-view = 旁观者视图
 game_special-mu-count = {$unused} / {$available} {$mu-type} 空闲内存
 
 game_stack = 存储栈
+
+game_stack-count = 存储栈({$cnt}张)
 
 game_start = 开始对战
 
@@ -758,15 +856,83 @@ ingame-settings_sort-heap = 排序堆阵
 
 ingame-settings_stack-cards = 启用服务器堆叠
 
-lobby_turmoil = Turmoil
+landing_github = Github
 
-lobby_turmoil-details = The fickle winds of fate shall decide your future.
+landing_jinteki-is-free = Jinteki.net 是众多个人自愿贡献的成果。如果您希望让 Jinteki.net 变得更好，发现了 bug 需要报告问题，或者只是想阅读代码，请访问我们的 [link] 页面。
 
-lobby_turmoil-theme = "FINUKA DISPOSES"
+landing_make-jinteki-better = 让 Jinteki.net 变得更好：
 
-lobby_turmoil-info = This lobby is running in turmoil mode. The winds of fate shall decide your path to the future.
+landing_moderators-arent-judges = 管理员的职责不是解决规则纠纷或担任裁判。如果出现规则分歧，将其带到社区空间是解决问题的最佳途径。
 
-lobby_span-turmoil = (turmoil)
+landing_moderators-will-respond = 管理员在接到违规报告后，将尽可能尝试联系用户以解决问题。对于屡次或严重违规行为，管理团队将进行审核，并给予临时或永久封禁。所有封禁决定都将由整个管理团队共同审核。
+
+landing_please-be-nice = 请互相尊重。无论情况或理由如何，任何不尊重的行为都是不被容忍的。
+
+landing_please-be-nice-in-global = 全局聊天标签仅应用于讨论与矩阵潜袭相关的内容（包括非官方的规则澄清）以及尝试联系可能断线的用户。不当使用全局聊天的情况包括：与其他玩家争执、发表抱怨言论，以及下文列出的所有不可接受行为。
+
+landing_please-dont-do-these = 不可接受的行为包括但不限于以下例子：
+
+landing_please-no-harassment = 基于对手的游戏风格或卡组对其进行骚扰。
+
+landing_please-no-misgendering = 故意使用错误的代词称呼他人，尤其是在被告知正确代词之后。如果不确定，请使用中性语言。
+
+landing_please-no-smut = 使用带有性暗示的语言或图像。
+
+landing_please-no-trigger-mocking = 轻视或嘲讽有关触发警告或内容警告的提醒。
+
+landing_please-no-trolling = 钓鱼、侮辱/贬低性评论、随意使用冒犯性词汇、使用歧视性语言、人身/政治攻击、骚扰、恐吓、威胁，或任何超出游玩《Android： Netrunner》范畴的行为。
+
+landing_please-no-ugly-titles = 可能被合理视为不当或冒犯的游戏标题
+
+landing_prison-decks-exist = 矩阵潜袭中存在多种卡组原型和游戏风格。所有风格都是有效的，应受到尊重。如果您不想与特定卡组或风格对战，请在游戏标题中注明（例如“不使用 Project Vacheron”或“仅限经验/新手玩家”）。如果游戏已经开始，请礼貌地向对手解释并认输。
+
+landing_report-here = 要举报事件或联系管理团队，请发送电子邮件至 [email]。如果举报事件，请尽可能附带截图。
+
+landing_rules-are-incomplete = 本网站旨在方便在线进行矩阵潜袭游戏。请注意，jinteki.net 可能并未完全实现游戏的所有规则。
+
+landing_use-header = Jinteki.net 的使用：
+
+landing_visit-neh-for-rules = 请访问 [link] 获取规则和其他资源的链接
+
+landing_welcome = 欢迎！
+
+lang_ca = 加泰罗尼亚语
+
+lang_de = 德语
+
+lang_en = 英语
+
+lang_es = 西班牙语
+
+lang_fr = 法语
+
+lang_it = 意大利语
+
+lang_ja = 日语
+
+lang_ko = 韩语
+
+lang_la-pig = Pig-Latin
+
+lang_pl = 波兰语
+
+lang_pt = 葡萄牙语
+
+lang_ru = 俄语
+
+lang_zh-simp = 简体中文
+
+lang_zh-trad = 繁体中文
+
+lobby_turmoil = 风云变幻
+
+lobby_turmoil-details = 命运无常之风将决定你的未来。
+
+lobby_turmoil-theme = "命运弄人"
+
+lobby_turmoil-info = 此大厅正在以“风云变幻”模式运行。命运之风将决定你未来的道路。
+
+lobby_span-turmoil = （风云变幻）
 
 lobby_aborted = 连接已中断
 
@@ -784,7 +950,11 @@ lobby_both-perspective = 双方视角
 
 lobby_cancel = 取消
 
+lobby_cannot-select-deck = 无法选择该牌组
+
 lobby_chat = 聊天
+
+lobby_casual = 休闲
 
 lobby_closed-msg = 房间因长期无活动而关闭
 
@@ -793,6 +963,8 @@ lobby_completion-rate = 游戏完成率
 lobby_corp-perspective = 公司视角
 
 lobby_create = 创建
+
+lobby_creation-paused = Game creation is currently paused for maintenance. Please try again later.
 
 lobby_deck-selected = 牌组已选择
 
@@ -842,6 +1014,16 @@ lobby_load-replay = 加载录像
 lobby_new-game = 新建对战
 
 lobby_no-games = 当前无对战
+
+lobby_no-valid-decks = 你没有适合本赛制的牌组
+
+lobby_no-valid-decks-format = {$format ->
+    *[unknown] 此房间适用{$format}赛制
+}
+
+lobby_no-valid-decks-help = {$format ->
+    *[unknown] 请检查你的牌组列表是否有效，并确保你正在加入合适模式的游戏。如果你是新手玩家，希望使用新手牌组进行游戏，你需要创建或加入一局“系统入门”模式的游戏。
+}
 
 lobby_not-allowed = 操作被禁止
 
@@ -920,11 +1102,18 @@ lobby_timed-game-details = 计时器仅为方便使用：当计时器结束时�
 
 lobby_timer-length = 计时器长度（分钟）
 
+lobby_timer-set-for = {$minutes ->
+    [one] 游戏计时器设置为{$cnt}分钟
+    *[other] 游戏计时器设置为{$cnt}分钟
+}
+
 lobby_title = 房间名
 
 lobby_title-error = 请设置房间名。
 
 lobby_too-little-data = 数据不足
+
+lobby_tournament = 锦标赛
 
 lobby_type = {$type ->
     [angel-arena] 天使竞技场
@@ -999,6 +1188,24 @@ nav_tournaments = 比赛
 nav_users = 用户
 
 nav_welcome = 欢迎
+
+new-game_default = 无特殊条件
+
+new-game_meta-deck = 与主流竞技卡组对战
+
+new-game_casual = 休闲游戏
+
+new-game_competitive = 竞技游戏
+
+new-game_new-player = 学习游戏
+
+pending-game_meta-deck = 寻找：主流卡组
+
+pending-game_casual = 寻找：休闲游戏
+
+pending-game_competitive = 寻找：竞技游戏
+
+pending-game_new-player = 寻找：学习游戏
 
 preconstructed_worlds-2012-a = Worlds 2012: Ben Marsh (C) vs. Jeremy Zwirn (R)
 
@@ -1176,6 +1383,7 @@ pronouns = {$pronoun ->
     [he] 他（He/him）
     [heit] He/it
     [heshe] He/She/they
+    [heshe2] He/She
     [hethey] 他（He/they）
     [it] 它（It）
     [myodb] 不愿透露
@@ -1191,6 +1399,8 @@ pronouns = {$pronoun ->
     [zehir] Ze/hir
     [zezir] Ze/zir
 }
+
+replay_share-timestamp = 分享时间戳
 
 set_name = {$name ->
     [a23-seconds] 二十三秒
@@ -1261,6 +1471,7 @@ set_name = {$name ->
     [red-sand-cycle] 红砂循环
     [reign-and-reverie] 统治与幻想
     [revised-core-set] 修订版核心系列
+    [rules] 规则插入
     [salsette-island] 撒尔塞特
     [salvaged-memories] 唤醒回忆
     [sansan-cycle] 圣加州循环
@@ -1290,32 +1501,40 @@ set_name = {$name ->
     [uprising] 起义
     [uprising-booster-pack] 起义推广包
     [upstalk] 上行之夜
+    [vantage-point] 制高点
     [what-lies-ahead] 前途未卜
     [whispers-in-nalubaale] 纳鲁巴勒低语
     [world-champion-2015] 世界冠军2015
     [world-champion-2016] 世界冠军2016
     [world-champion-2017] 世界冠军2017
-    [nin419-alt-arts] nin419 Alt Arts
-    [ams-alt-arts] Ams Alt Arts
-    [adam-s-doyle-alt-arts] Adam S. Doyle Alt Arts
-    [brindelmold-alt-arts] Brindelmold Alt Arts
-    [ezbior-alt-arts] Ezbior Alt Arts
-    [kalypso-alt-arts] Kalypso Alt Arts
-    [elessarellie-alt-arts] ElessarEllie Alt Arts
-    [mr-alt-arts] M.R. Alt Arts
-    [maysleyline-alt-arts] mays.leyline Alt Arts
-    [nicky-cheng-alt-arts] Nicky Cheng Alt Arts
-    [scott-uminga-alt-arts] Scott Uminga Alt Arts
-    [the-tag-mill-alt-arts] The Tag Mill Alt Arts
-    [valenetrunner-alt-arts] ValeNetrunner Alt Arts
-    [igor-lebedev-alt-arts] Igor Lebedev Alt Arts
+    [nin419-alt-arts] nin419 异画
+    [ams-alt-arts] Ams 异画
+    [adam-s-doyle-alt-arts] Adam S. Doyle 异画
+    [brindelmold-alt-arts] Brindelmold 异画
+    [ezbior-alt-arts] Ezbior 异画
+    [kalypso-alt-arts] Kalypso 异画
+    [elessarellie-alt-arts] ElessarEllie 异画
+    [lucius-felimus-alt-arts] Lucius Felimus 异画
+    [mr-alt-arts] M.R. 异画
+    [maysleyline-alt-arts] mays.leyline 异画
+    [monde-alt-arts] Monde 异画
+    [nicky-cheng-alt-arts] Nicky Cheng 异画
+    [plural-alt-arts] Plural 异画
+    [scott-uminga-alt-arts] Scott Uminga 异画
+    [stwyde-alt-arts] Stwyde 异画
+    [the-tag-mill-alt-arts] The Tag Mill 异画
+    [valenetrunner-alt-arts] ValeNetrunner 异画
+    [igor-lebedev-alt-arts] Igor Lebedev 异画
+    [utati-alt-arts] Utati 异画
+    [zuf-alt-arts] zuf 异画
+    [tim-goschnick-alt-arts] Tim Goschnick 异画
     [gnk-2013] 2013 FFG GNK
     [gnk-2014] 2014 FFG GNK
     [gnk-2015] 2015 FFG GNK
     [gnk-2016] 2016 FFG GNK
     [gnk-2017] 2017 FFG GNK
-    [nsg-2024-prizing] 2024 NSG Prizing
-    [nsg-2025-prizing] 2025 NSG Prizing
+    [nsg-2024-prizing] 2024 NSG 奖品
+    [nsg-2025-prizing] 2025 NSG 奖品
     *[unknown] 未知系列 {$name}
 }
 
@@ -1324,6 +1543,10 @@ settings_alt-art = 异画卡
 settings_always = 总是
 
 settings_api-keys = API密钥
+
+settings_api-keys-not-updated = 更新API密钥失败
+
+settings_api-keys-updated = 更新API密钥
 
 settings_avatar = 头像
 
@@ -1376,6 +1599,8 @@ settings_card-backs-tip = 通过在选定的在线锦标赛中获得高名次，
 settings_card-iamge = 卡牌图像
 
 settings_card-images = 卡牌图像
+
+settings_card-language = 卡牌语言
 
 settings_card-preview-zoom = 卡牌预览缩放
 

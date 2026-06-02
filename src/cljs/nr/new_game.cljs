@@ -1,13 +1,13 @@
 (ns nr.new-game
   (:require
-   [jinteki.utils :refer [str->int]]
-   [jinteki.preconstructed :refer [all-matchups matchup-by-key]]
-   [nr.appstate :refer [app-state]]
-   [nr.auth :refer [authenticated] :as auth]
-   [nr.translations :refer [tr tr-format tr-side tr-element tr-span]]
-   [nr.utils :refer [cond-button slug->format]]
-   [nr.ws :as ws]
-   [reagent.core :as r]))
+    [jinteki.utils :refer [str->int]]
+    [jinteki.preconstructed :refer [all-matchups matchup-by-key]]
+    [nr.appstate :refer [app-state]]
+    [nr.auth :refer [authenticated] :as auth]
+    [nr.translations :refer [tr tr-format tr-side tr-element tr-span]]
+    [nr.utils :refer [cond-button slug->format]]
+    [nr.ws :as ws]
+    [reagent.core :as r]))
 
 (def new-game-keys
   [:allow-spectator
@@ -23,6 +23,8 @@
    :precon
    :gateway-type
    :open-decklists
+   :replay-id
+   :replay-timestamp
    :timer
    :title])
 
@@ -160,10 +162,10 @@
 
 (defn allow-spectators [options]
   [:p
-    [:label
-     [:input {:type "checkbox" :checked (:allow-spectator @options)
-              :on-change #(swap! options assoc :allow-spectator (.. % -target -checked))}]
-     [tr-span [:lobby_spectators "Allow spectators"]]]])
+   [:label
+    [:input {:type "checkbox" :checked (:allow-spectator @options)
+             :on-change #(swap! options assoc :allow-spectator (.. % -target -checked))}]
+    [tr-span [:lobby_spectators "Allow spectators"]]]])
 
 (defn toggle-hidden-info [options]
   [:<>

@@ -58,7 +58,8 @@ tags
 tags.temp
 tags.temp.tmp
 
-.lsp/
+.clj-kondo/.cache
+.lsp/.cache
 .shadow-cljs/
 tests-user.edn
 data/cards-ca.edn
@@ -76,3 +77,4 @@ data/cards-zh-hant.edn
 
 # Coding agents
 .claude/
+.playwright-cli/

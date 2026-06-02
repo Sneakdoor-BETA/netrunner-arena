@@ -1,27 +1,27 @@
 (ns web.lobby
   (:require
-   [clojure.core.async :refer [<! go timeout]]
-   [cljc.java-time.instant :as inst]
-   [cljc.java-time.duration :as duration]
-   [cljc.java-time.temporal.chrono-unit :as chrono]
-   [clojure.set :as set]
-   [clojure.string :as str]
-   [com.climate.claypoole :as cp]
-   [crypto.password.bcrypt :as bcrypt]
-   [game.core :as core]
-   [game.utils :refer [server-card]]
-   [jinteki.utils :refer [select-non-nil-keys side-from-str superuser? to?]]
-   [jinteki.preconstructed :refer [all-matchups]]
-   [jinteki.validator :as validator]
-   [medley.core :refer [find-first]]
-   [monger.collection :as mc]
-   [time-literals.read-write :as read-write]
-   [web.app-state :as app-state]
-   [web.mongodb :as mongodb]
-   [web.stats :as stats]
-   [web.ws :as ws]
-   [taoensso.encore :as enc]
-   [taoensso.timbre :as timbre]))
+    [clojure.core.async :refer [<! go timeout]]
+    [cljc.java-time.instant :as inst]
+    [cljc.java-time.duration :as duration]
+    [cljc.java-time.temporal.chrono-unit :as chrono]
+    [clojure.set :as set]
+    [clojure.string :as str]
+    [com.climate.claypoole :as cp]
+    [crypto.password.bcrypt :as bcrypt]
+    [game.core :as core]
+    [game.utils :refer [server-card]]
+    [jinteki.utils :refer [select-non-nil-keys side-from-str superuser? to?]]
+    [jinteki.preconstructed :refer [all-matchups]]
+    [jinteki.validator :as validator]
+    [medley.core :refer [find-first]]
+    [monger.collection :as mc]
+    [time-literals.read-write :as read-write]
+    [web.app-state :as app-state]
+    [web.mongodb :as mongodb]
+    [web.stats :as stats]
+    [web.ws :as ws]
+    [taoensso.encore :as enc]
+    [taoensso.timbre :as timbre]))
 
 (read-write/print-time-literals-clj!)
 
@@ -85,8 +85,9 @@
 
 (defonce lobby-pool (cp/threadpool 1 {:name "lobbies-thread"}))
 (defmacro lobby-thread [& expr] `(cp/future lobby-pool ~@expr))
-(defmacro game-thread [lobby & expr]
+(defmacro game-thread
   "Note: if the lobby isn't actually real, or has been nulled somehow, executing on the lobby thread is safe"
+  [lobby & expr]
   `(cp/future (get-in ~lobby [:pool :pool] lobby-pool) ~@expr))
 
 (defmulti assign-tournament-properties identity)
@@ -106,7 +107,8 @@
     user :user
     {:keys [gameid now
             allow-spectator api-access format mute-spectators password room save-replay
-            precon gateway-type side singleton spectatorhands timer title open-decklists description]
+            precon gateway-type side singleton spectatorhands timer title open-decklists description
+            replay-id replay-timestamp]
      :or {gameid (random-uuid)
           now (inst/now)}} :options}]
   (let [player {:user user
@@ -133,6 +135,8 @@
      :room room
      :save-replay save-replay
      :spectatorhands spectatorhands
+     :replay-id replay-id
+     :replay-timestamp replay-timestamp
      :singleton (when (some #{format} `("standard" "startup" "casual" "eternal")) singleton)
      :timer timer
      :title title}))
@@ -219,11 +223,13 @@
    :title
    :old
    :description
+   ;; for replay restoration
+   :replay-id
+   :replay-timestamp
    ;; for tournament system
    :time-extension
    :excluded?
-   :round-end-time
-   ])
+   :round-end-time])
 
 (defn maybe-round-end-time
   [lobby]
@@ -342,7 +348,7 @@
   [uid user ?data]
   (let [lobby (-> (create-new-lobby {:uid uid :user user :options ?data})
                   (send-message
-                   (core/make-system-message (str (:username user) " has created the game."))))
+                    (core/make-system-message (str (:username user) " has created the game."))))
         new-app-state (swap! app-state/app-state update :lobbies
                              register-lobby lobby uid)
         lobby? (get-in new-app-state [:lobbies (:gameid lobby)])]
@@ -461,16 +467,16 @@
   (let [leave-message (core/make-system-message (str (:username user) " left the game."))
         new-app-state (swap! app-state/app-state update :lobbies
                              #(handle-leave-lobby % uid leave-message))
-          lobby? (get-in new-app-state [:lobbies (:gameid lobby)])]
-      (if lobby?
-        (when-let [state (:state lobby?)]
-          (let [side (side-from-str (:side (player? uid lobby) ""))]
-            (swap! state update side dissoc :user)))
-        (close-lobby! db lobby))
-      (send-lobby-state lobby?)
-      (broadcast-lobby-list)
-      (when ?reply-fn (?reply-fn true))
-      lobby?))
+        lobby? (get-in new-app-state [:lobbies (:gameid lobby)])]
+    (if lobby?
+      (when-let [state (:state lobby?)]
+        (let [side (side-from-str (:side (player? uid lobby) ""))]
+          (swap! state update side dissoc :user)))
+      (close-lobby! db lobby))
+    (send-lobby-state lobby?)
+    (broadcast-lobby-list)
+    (when ?reply-fn (?reply-fn true))
+    lobby?))
 
 (defmethod ws/-msg-handler :lobby/leave
   lobby--leave

@@ -1,23 +1,23 @@
 (ns game.core.set-up
   (:require
-   [cljc.java-time.instant :as inst]
-   [game.core.card :refer [corp? runner?]]
-   [game.core.card-defs :refer [card-def]]
-   [game.core.checkpoint :refer [fake-checkpoint]]
-   [game.core.diffs :refer [public-states]]
-   [game.core.drawing :refer [draw]]
-   [game.core.eid :refer [make-eid effect-completed]]
-   [game.core.engine :refer [trigger-event trigger-event-sync]]
-   [game.core.initializing :refer [card-init make-card]]
-   [game.core.player :refer [new-corp new-runner]]
-   [game.core.prompts :refer [clear-wait-prompt show-prompt show-wait-prompt]]
-   [game.core.quick-draft :refer [check-quick-draft]]
-   [game.core.say :refer [system-msg system-say implementation-msg]]
-   [game.core.shuffling :refer [shuffle-into-deck shuffle-coll]]
-   [game.core.state :refer [new-state]]
-   [game.macros :refer [wait-for]]
-   [game.quotes :as quotes]
-   [game.utils :refer [server-card]]))
+    [cljc.java-time.instant :as inst]
+    [game.core.card :refer [corp? runner?]]
+    [game.core.card-defs :refer [card-def]]
+    [game.core.checkpoint :refer [fake-checkpoint]]
+    [game.core.diffs :refer [public-states]]
+    [game.core.drawing :refer [draw]]
+    [game.core.eid :refer [make-eid effect-completed]]
+    [game.core.engine :refer [trigger-event trigger-event-sync]]
+    [game.core.initializing :refer [card-init make-card]]
+    [game.core.player :refer [new-corp new-runner]]
+    [game.core.prompts :refer [clear-wait-prompt show-prompt show-wait-prompt]]
+    [game.core.quick-draft :refer [check-quick-draft]]
+    [game.core.say :refer [system-msg system-say implementation-msg]]
+    [game.core.shuffling :refer [shuffle-into-deck shuffle-coll]]
+    [game.core.state :refer [new-state]]
+    [game.macros :refer [wait-for]]
+    [game.quotes :as quotes]
+    [game.utils :refer [server-card]]))
 
 (defn build-card
   [card]
@@ -80,7 +80,7 @@
 
 (defn- init-game-state
   "Initialises the game state"
-  [{:keys [players gameid timer spectatorhands api-access save-replay room] :as game}]
+  [{:keys [players gameid timer spectatorhands api-access save-replay room replay-id] :as game}]
   (let [corp (some #(when (corp? %) %) players)
         runner (some #(when (runner? %) %) players)
         corp-deck (create-deck (:deck corp))
@@ -109,6 +109,7 @@
         {:timer timer
          :spectatorhands spectatorhands
          :api-access api-access
+         :replay-id replay-id
          :save-replay save-replay}
         (new-corp (:user corp) corp-identity corp-options (map #(assoc % :zone [:deck]) corp-deck) corp-deck-id corp-quote)
         (new-runner (:user runner) runner-identity runner-options (map #(assoc % :zone [:deck]) runner-deck) runner-deck-id runner-quote)))))
@@ -155,9 +156,10 @@
   (let [state (init-game-state game)
         corp-identity (get-in @state [:corp :identity])
         runner-identity (get-in @state [:runner :identity])]
-    (when-let [messages (seq (:messages game))]
-      (swap! state assoc :log (into [] messages))
-      (system-say state nil "[hr]"))
+    (if-let [messages (seq (:messages game))]
+      (do (swap! state assoc :log (mapv (fn [m] {:public m}) messages))
+          (system-say state nil "[hr]"))
+      (swap! state assoc :log []))
     (when (:open-decklists game)
       (set-deck-lists state))
     (card-init state :corp corp-identity)
@@ -166,13 +168,14 @@
     (implementation-msg state runner-identity)
     (create-basic-action-cards state)
     (fake-checkpoint state)
-    (let [eid (make-eid state)]
-      (wait-for
-        (check-quick-draft state (:format game))
-        (wait-for (trigger-event-sync state :corp :pre-start-game nil)
-                  (wait-for (trigger-event-sync state :runner :pre-start-game nil)
-                            (init-hands state)
-                            (fake-checkpoint state)
-                            (effect-completed state nil eid)))))
+    (when-not (get-in @state [:options :replay-id])
+      (let [eid (make-eid state)]
+        (wait-for
+          (check-quick-draft state (:format game))
+          (wait-for (trigger-event-sync state :corp :pre-start-game nil)
+                    (wait-for (trigger-event-sync state :runner :pre-start-game nil)
+                              (init-hands state)
+                              (fake-checkpoint state)
+                              (effect-completed state nil eid))))))
     (swap! state assoc :history [(:hist-state (public-states state))])
     state))

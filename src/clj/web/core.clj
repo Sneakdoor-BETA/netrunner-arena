@@ -4,7 +4,7 @@
    [web.system :refer [start stop]]
    [taoensso.timbre :as timbre]
    [web.logs :refer [timbre-init!]])
-  (:gen-class :main true))
+  (:gen-class))
 
 (defn -main [& _args]
   (let [system (start)

@@ -4,7 +4,7 @@
    [game.core :as core]
    [game.core.card :refer :all]
    [game.core.flags :as flags]
-   [game.macros :refer [req]]
+   [game.macros :refer [effect]]
    [game.test-framework :refer :all]))
 
 (deftest can-score?-test
@@ -21,7 +21,7 @@
       (is (flags/can-score? state :corp test-card-with-counters)))
     (testing "can-core-req passes in state"
       (defmethod core/defcard-impl "Test Card" [_]
-        {:flags {:can-score (req (= (:title card) "Different Card"))}})
+        {:flags {:can-score (effect (= (:title card) "Different Card"))}})
       (is (not (flags/can-score? state :corp test-card-with-counters)))
       (is (flags/can-score? state :corp (assoc test-card-with-counters :title "Different Card")))))
   (remove-method core/defcard-impl "Test Card"))

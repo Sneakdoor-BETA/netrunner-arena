@@ -6,7 +6,8 @@
              "Don't make such a mess we got to explain it to big J."]
   "Ken \"Express\" Tenma: Disappeared Clone" ["Wow, it's still alive somehow."]
   "Shaper"
-  ["Even this mind can be dulled by repetition. Strike when they get complacent, but before you get bored."]}
+  ["Even this mind can be dulled by repetition. Strike when they get complacent, but before you get bored."
+   "This one seems to be prone to fancies of freedom."]}
  "Acme Consulting: The Truth You Need"
  {"Anarch"
   ["Some grandstanding vigilante thinks they can threaten us? Our report will conclude all damage was self-inflicted. Case closed."]
@@ -307,9 +308,21 @@
  "LEO Construction: Labor Solutions"
  {"Default" ["Workers of the World, Delivered"]}
  "Méliès U: Only the Brightest"
- {"Default" ["Who are you to interrupt our exploration of new ideas?"
+ {"Anarch"
+  ["We will not allow ourselves to be distracted by the politics of the day."
+   "What can be accomplished by burning everything down? We will push through to a better world."
+   "These people care too much."]
+  "Criminal"
+  ["Security will see them off, the investments in our research are appropriately valued."
+   "This has got to be the worst version of trying to take credit for other's work."
+   "They were never here, so nothing questionable could have ever happened to them."]
+  "Default" ["Who are you to interrupt our exploration of new ideas?"
              "This is just another problem in the project to be solved."
-             "There are some questions you just shouldn't ask."]}
+             "There are some questions you just shouldn't ask."]
+  "Shaper"
+  ["Some jury-rigged hack job, impulsively chasing whatever catches their fancy."
+   "We are not here for the fun of it, we have serious work to do."
+   "After an experiment is done, success or failure, you just have to clean it up and move on."]}
  "MirrorMorph: Endless Iteration"
  {"Anarch"
   ["Our subroutines estimate an 92.2% chance of such a reckless runner flatlining themself before even catching a glimpse of our servers. Simulations upon simulations wind up the same."]

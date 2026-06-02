@@ -1523,7 +1523,7 @@
       (take-credits state :corp)
       (play-from-hand state :runner "Dadiana Chacon")
       (play-from-hand state :runner "Corroder")
-      (is (last-n-log-contains? state 3 "Runner spends [Click] and pays 0 [Credits] to install Dadiana Chacon."))
+      (is (true? (last-n-log-contains? state 3 "Runner spends [Click] and pays 0 [Credits] to install Dadiana Chacon.")))
       (is (last-n-log-contains? state 2 "Runner uses Dadiana Chacon to suffer 3 meat damage."))
       (is (second-last-log-contains? state "Runner trashes Corroder, Corroder, and Corroder due to meat damage."))
       (is (last-log-contains? state "Runner spends [Click] and pays 2 [Credits] to install Corroder."))))
@@ -4969,6 +4969,19 @@
     (is (changed? [(count (:hand (get-runner))) 0]
           (run-empty-server state :archives)))))
 
+(deftest nurse-hanh-vs-archives-flip-cards-test
+  (doseq [c ["Heliamphora" "Archives Interface"]]
+    (testing (str c " vs nurse hanh")
+      (do-game
+        (new-game {:runner {:hand ["Nurse Hạnh" c]
+                            :credits 10
+                            :deck [(qty "Nurse Hạnh" 15)]}
+                   :corp {:discard [(qty "IPO" 6)]}})
+        (take-credits state :corp)
+        (play-cards state :runner "Nurse Hạnh" c)
+        (is (changed? [(count (:hand (get-runner))) 2]
+              (run-empty-server state :archives)))))))
+
 (deftest off-campus-apartment-ability-shows-a-simultaneous-resolution-prompt-when-appropriate
     ;; ability shows a simultaneous resolution prompt when appropriate
     (do-game
@@ -5001,7 +5014,7 @@
         (click-prompt state :runner "Street Peddler")
         (let [ped1 (first (:hosted (refresh oca)))]
           (card-ability state :runner ped1 0)
-          (click-prompt state :runner (last (prompt-buttons :runner))) ; choose Street Peddler
+          (click-prompt state :runner (first (prompt-buttons :runner))) ; choose Street Peddler
           (click-prompt state :runner (:title oca))
           (click-prompt state :runner (:title oca))
           (let [ped2 (first (:hosted (refresh oca)))]

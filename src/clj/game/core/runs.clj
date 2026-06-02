@@ -332,9 +332,9 @@
 (defn- preventable-encounter-abi
   [abi ice]
   {:async true
-   :interactive (req true)
+   :interactive (effect true)
    :ability-name (str (or (:ability-name abi) (:title ice)) " encounter")
-   :effect (req (wait-for (resolve-encounter-prevention state side {:title (str (or (:ability-name abi) (:title ice)) " encounter") :card ice})
+   :effect (effect (wait-for (resolve-encounter-prevention state side {:title (str (or (:ability-name abi) (:title ice)) " encounter") :card ice})
                           (if (pos? (:remaining async-result))
                             (do (register-pending-event state :resolve-ice-encounter-abi ice abi)
                                 (queue-event state :resolve-ice-encounter-abi {:ice ice})
@@ -593,16 +593,16 @@
         duration (:duration props)]
     {:event :successful-run
      :duration duration
-     :req (req (and (if use-this-card-run this-card-run true)
+     :req (req (if use-this-card-run this-card-run true)
                     (case attacked-server
                       (:archives :rd :hq)
                       (= attacked-server (target-server context))
                       :remote
                       (is-remote? (target-server context))
                       ; else
-                      true)))
+                      true))
      :silent true
-     :effect (req (add-run-effect state card ability props))}))
+     :effect (effect (add-run-effect state card ability props))}))
 
 (defn choose-replacement-ability
   [state handlers]
@@ -632,7 +632,7 @@
         {:prompt "Choose a breach replacement ability"
          :choices (if mandatory titles (conj titles (str "Breach " (zone->name (:server (:run @state))))))
          :async true
-         :effect (req (let [chosen (some #(when (same-card? target (:card %)) %) handlers)
+         :effect (effect (let [chosen (some #(when (same-card? target (:card %)) %) handlers)
                             ability (:ability chosen)
                             card (:card chosen)]
                         (if chosen
@@ -670,8 +670,8 @@
             {:prompt (str "You are prevented from breaching " (zone->name server) " this run.")
              :choices ["OK"]
              :async true
-             :effect (effect (system-msg :runner (str "is prevented from breaching " (zone->name server) " this run."))
-                             (handle-end-run eid))}
+             :effect (effect (system-msg state :runner (str "is prevented from breaching " (zone->name server) " this run."))
+                             (handle-end-run state side eid))}
             nil nil)
 
           ;; Any number of replace-breach effects
