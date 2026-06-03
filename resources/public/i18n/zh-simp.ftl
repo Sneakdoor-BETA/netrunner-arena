@@ -1976,12 +1976,4 @@ stats_winner = 胜者: {$winner ->
 
 stats_won = 胜利: {$won} ({NUMBER($percent, style: "percent")})
 
-about_about = 关于
-
-about_development = 开发
-
-about_donations = 打赏
-
-about_disclaimer = 版权信息
-
 wrapped_title = 2025年度报告
