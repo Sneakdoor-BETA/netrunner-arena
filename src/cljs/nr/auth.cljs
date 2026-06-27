@@ -26,12 +26,12 @@
                    (= url "/forgot"))
             (swap! s assoc :flash-message "Reset password sent")
             (case (:status response)
-              401 (swap! s assoc :flash-message (tr [:sndb_invalid-login-password "Invalid login or password"]))
-              403 (swap! s assoc :flash-message (or (:error (:json response)) (tr [:sndb_account-banned "Account banned"])))
-              421 (swap! s assoc :flash-message (tr [:sndb_no-account-exist "No account with that email address exists"]))
-              422 (swap! s assoc :flash-message (tr [:sndb_username-taken "Username taken"]))
-              423 (swap! s assoc :flash-message (tr [:sndb_username-invalid-length "Username too long"]))
-              424 (swap! s assoc :flash-message (tr [:sndb_email_used "Email already used"]))
+              401 (swap! s assoc :flash-message "Invalid login or password")
+              403 (swap! s assoc :flash-message (or (:error (:json response)) "Account banned"))
+              421 (swap! s assoc :flash-message "No account with that email address exists")
+              422 (swap! s assoc :flash-message "Username taken")
+              423 (swap! s assoc :flash-message "Username too long")
+              424 (swap! s assoc :flash-message "Email already used")
               (-> js/document .-location (.reload true))))))))
 
 (defn handle-logout [event]
@@ -61,21 +61,21 @@
   [:ul
    [:li
     [:a {:href "" :data-target "#register-form" :data-toggle "modal"
-         :on-click (fn [] (.focus (js/$ "input[name='email']")))} (tr [:sndb_form-signup "Sign up"])]]
+         :on-click (fn [] (.focus (js/$ "input[name='email']")))} (tr [:menu_signup "Sign up"])]]
    [:li
-    [:a {:href "" :data-target "#login-form" :data-toggle "modal"} (tr [:sndb_form-login "Login"])]]])
+    [:a {:href "" :data-target "#login-form" :data-toggle "modal"} (tr [:menu_login "Login"])]]])
 
 (defn check-username [value s]
   (go (let [response (<! (GET (str "/check-username/" value)))]
         (case (:status response)
-          422 (swap! s assoc :flash-message (tr [:sndb_username-taken "Username taken"]))
-          423 (swap! s assoc :flash-message (tr [:sndb_username-invalid-length "Username too short/too long"]))
+          422 (swap! s assoc :flash-message "Username taken")
+          423 (swap! s assoc :flash-message "Username too short/too long")
           (swap! s assoc :flash-message "")))))
 
 (defn check-email [value s]
   (go (let [response (<! (GET (str "/check-email/" value)))]
         (case (:status response)
-          422 (swap! s assoc :flash-message (tr [:sndb_email-taken "Email taken"]))
+          422 (swap! s assoc :flash-message "Email taken")
           (swap! s assoc :flash-message "")))))
 
 (defn valid-email? [email]
@@ -87,23 +87,23 @@
   (.preventDefault event)
    (cond
      (empty? (:email @s))
-     (swap! s assoc :flash-message (tr [:sndb_form-msg-empty-email "Email can't be empty"]))
+     (swap! s assoc :flash-message "Email can't be empty")
 
      (empty? (:username @s))
-     (swap! s assoc :flash-message (tr [:sndb_form-msg-empty-username "Username can't be empty"]))
+     (swap! s assoc :flash-message "Username can't be empty")
 
      (not (-> @s :email valid-email?))
-     (swap! s assoc :flash-message (tr [:sndb_form-msg-invalid-email "Please enter a valid email address"]))
+     (swap! s assoc :flash-message "Please enter a valid email address")
 
      (< 20 (-> @s :username count))
-     (swap! s assoc :flash-message (tr [:sndb_form-msg-long-username "Username must be 20 characters or shorter"]))
+     (swap! s assoc :flash-message "Username must be 20 characters or shorter")
 
      (or (empty? (:password @s))
          (empty? (:confirm-password @s)))
-     (swap! s assoc :flash-message (tr [:sndb_form-msg-empty-password "Password can't be empty"]))
+     (swap! s assoc :flash-message "Password can't be empty")
 
      (not= (:password @s) (:confirm-password  @s))
-     (swap! s assoc :flash-message (tr [:sndb_form-msg-password-matching "Passwords must match"]))
+     (swap! s assoc :flash-message "Passwords must match")
 
      :else
      (handle-post event "/register" s)))
@@ -112,20 +112,20 @@
   (r/with-let [s (r/atom {:flash-message ""})]
     [:div#register-form.modal.fade {:ref "register-form"}
      [:div.modal-dialog
-      [:h3 (tr [:sndb_form-create-account "Create an account"])]
+      [:h3 "Create an account"]
       [:p.flash-message (:flash-message @s)]
       [:form {:on-submit #(register % s)}
        [:p [:input {:type "text"
-                    :placeholder (tr [:sndb_form-placeholder-email "Email"])
+                    :placeholder "Email"
                     :name "email"
                     :ref "email"
                     :value (:email @s)
                     :on-change #(swap! s assoc :email (-> % .-target .-value))
                     :on-blur #(do (check-email (-> % .-target .-value) s)
                                   (when-not (valid-email? (.. % -target -value))
-                                    (swap! s assoc :flash-message (tr [:sndb_form-msg-invalid-email "Please enter a valid email address"]))))}]]
+                                    (swap! s assoc :flash-message "Please enter a valid email address")))}]]
        [:p [:input {:type "text"
-                    :placeholder (tr [:sndb_form-placeholder-username "Username"])
+                    :placeholder "Username"
                     :name "username"
                     :ref "username"
                     :value (:username @s)
@@ -133,29 +133,28 @@
                     :on-blur #(check-username (-> % .-target .-value) s)
                     :maxLength "16"}]]
        [:p [:input {:type "password"
-                    :placeholder (tr [:sndb_form-placeholder-password "Password"])
+                    :placeholder "Password"
                     :name "password"
                     :ref "password"
                     :value (:password @s)
                     :on-change #(swap! s assoc :password (-> % .-target .-value))}]]
        [:p [:input {:type "password"
-                    :placeholder (tr [:sndb_form-placeholder-confirm-password "Confirm password"])
+                    :placeholder "Confirm password"
                     :name "confirm-password"
                     :ref "confirm-password"
                     :value (:confirm-password @s)
                     :on-change #(swap! s assoc :confirm-password (-> % .-target .-value))
                     :on-blur #(let [value (-> % .-target .-value)]
                                 (when-not (subs value 0 (count (:password @s)))
-                                  (swap! s assoc :flash-message (tr [:sndb_form-msg-password-mismatch "Please enter matching passwords"]))))}]]
-       [:p [:button (tr [:sndb_form-signup "Sign up"])]
-        [:button {:data-dismiss "modal"} (tr [:sndb_form-cancel "Cancel"])]]]
-      [:p (tr [:sndb_form-already-account  "Already have an account? "]) \
+                                  (swap! s assoc :flash-message "Please enter matching passwords")))}]]
+       [:p [:button "Sign up"]
+        [:button {:data-dismiss "modal"} "Cancel"]]]
+      [:p "Already have an account? " \
        [:span.fake-link {:on-click #(.modal (js/$ "#login-form") "show")
-                         :data-dismiss "modal"} (tr [:sndb_form-login "Log in"])]]
-      ;; [:p "Need to reset your password? "
-      ;;  [:span.fake-link {:on-click #(.modal (js/$ "#forgot-form") "show")
-      ;;                    :data-dismiss "modal"} "Reset"]]
-      ]]))
+                         :data-dismiss "modal"} "Log in"]]
+      [:p "Need to reset your password? "
+       [:span.fake-link {:on-click #(.modal (js/$ "#forgot-form") "show")
+                         :data-dismiss "modal"} "Reset"]]]]))
 
 (defn forgot-form []
   (r/with-let [s (r/atom {:flash-message ""})]
@@ -171,28 +170,27 @@
                                 (swap! s assoc :flash-message "Please enter a valid email address"))}]]
        [:p [:button "Submit"]
         [:button {:data-dismiss "modal"} "Cancel"]]
-       [:p (tr [:sndb_no-account "No account? "])
+       [:p "No account? "
         [:span.fake-link {:on-click #(.modal (js/$ "#register-form") "show")
-                          :data-dismiss "modal"} (tr [:sndb_form-signup "Sign up"])]]]]]))
+                          :data-dismiss "modal"} "Sign up!"]]]]]))
 
 (defn login-form []
   (r/with-let [s (r/atom {:flash-message ""})]
     [:div#login-form.modal.fade
      [:div.modal-dialog
-      [:h3 (tr [:sndb_form-login "Log in"])]
+      [:h3 "Log in"]
       [:p.flash-message (:flash-message @s)]
       [:form {:on-submit #(handle-post % "/login" s)}
-       [:p [:input {:type "text" :placeholder (tr [:sndb_form-placeholder-username "Username"]) :name "username"}]]
-       [:p [:input {:type "password" :placeholder (tr [:sndb_form-placeholder-password "Password"]) :name "password"}]]
-       [:p [:button (tr [:sndb_form-login "Log in"])]
-        [:button {:data-dismiss "modal"} (tr [:sndb_form-cancel "Cancel"])]]
-       [:p (tr [:sndb_no-account "No account? "])
+       [:p [:input {:type "text" :placeholder "Username" :name "username"}]]
+       [:p [:input {:type "password" :placeholder "Password" :name "password"}]]
+       [:p [:button "Log in"]
+        [:button {:data-dismiss "modal"} "Cancel"]]
+       [:p "No account? "
         [:span.fake-link {:on-click #(.modal (js/$ "#register-form") "show")
-                          :data-dismiss "modal"} (tr [:sndb_form-signup "Sign up"])]]
-      ;;  [:p "Forgot your password? "
-      ;;   [:span.fake-link {:on-click #(.modal (js/$ "#forgot-form") "show")
-      ;;                     :data-dismiss "modal"} "Reset"]]
-       ]]]))
+                          :data-dismiss "modal"} "Sign up!"]]
+       [:p "Forgot your password? "
+        [:span.fake-link {:on-click #(.modal (js/$ "#forgot-form") "show")
+                          :data-dismiss "modal"} "Reset"]]]]]))
 
 (defn auth-menu []
    (if-let [user (:user @app-state)]
