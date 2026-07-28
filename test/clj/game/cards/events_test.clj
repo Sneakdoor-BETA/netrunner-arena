@@ -546,6 +546,15 @@
     (click-prompt state :runner "No action")
     (is-deck? state :runner ["Orca"])))
 
+(deftest beta-build-non-virus-only
+  ;; Beta Build should only install non-virus programs #8746
+  (do-game
+    (new-game {:runner {:hand ["Beta Build"] :deck ["Orca" "Datasucker"]}})
+    (take-credits state :corp)
+    (play-from-hand state :runner "Beta Build")
+    (is (some #{"Orca"} (prompt-titles :runner)) "Non-virus program is offered")
+    (is (not (some #{"Datasucker"} (prompt-titles :runner))) "Virus program is not offered")))
+
 (deftest beta-build-vs-ice-swap
   (do-game
     (new-game {:runner {:hand ["Beta Build" "Rising Tide" "Sipa"] :credits 10 :deck ["Kyuban"]}
@@ -7743,6 +7752,27 @@
                    (:click (get-runner)) 0]
           (run-continue state))
         "Siphoned bigly")
+    (click-prompt state :runner "No action")))
+
+(deftest transfer-of-wealth-vs-r+
+  (do-game
+    (new-game {:runner {:hand ["Transfer of Wealth"]}
+               :corp {:id "NBN: Reality Plus" :credits 1
+                      :hand [(qty "PAD Campaign" 4)]}})
+    (dotimes [_ 3]
+      (play-cards state :corp ["PAD Campaign" "New remote"]))
+    (take-credits state :corp)
+    (play-from-hand state :runner "Transfer of Wealth")
+    (run-continue state)
+    (is (changed? [(:credit (get-corp)) -1
+                   (:credit (get-runner)) 0
+                   (count-tags state) +1]
+          (run-continue state))
+        "Siphoned small")
+    (is (changed? [(:credit (get-corp)) +2
+                   (:credit (get-runner)) +2]
+          (click-prompt state :corp "Gain 2 [Credits]"))
+        "R+ Triggers after the credit loss")
     (click-prompt state :runner "No action")))
 
 (deftest transfer-of-wealth-vs-redirect

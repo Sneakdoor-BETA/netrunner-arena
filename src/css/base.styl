@@ -10,6 +10,11 @@ html, body, #main-content
     padding: 0
     height: 100vh
 
+html.app-zoomed,
+html.app-zoomed body,
+html.app-zoomed #main-content
+    height: unquote("calc(100vh / var(--app-zoom, 1))")
+
 body
     color: gray-dark
     background-color: black-solid
@@ -457,6 +462,9 @@ span.small
         padding-top: 31px
         height: 100vh
         color: white-solid
+
+        html.app-zoomed &
+            height: unquote("calc(100vh / var(--app-zoom, 1))")
 
 // Version string on main page
 #version
