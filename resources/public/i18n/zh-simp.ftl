@@ -209,6 +209,7 @@ deck-builder_confirm-delete-multiple = 删除{$cnt ->
 }?
 
 deck-builder_copy = 复制
+deck-builder_print-pnp = 打印 PnP
 
 deck-builder_create-game = 创建对战
 
