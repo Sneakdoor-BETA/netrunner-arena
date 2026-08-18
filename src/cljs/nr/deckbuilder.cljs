@@ -11,6 +11,7 @@
     [nr.auth :refer [authenticated] :as auth]
     [nr.cardbrowser :refer [cards-channel factions filter-title image-url] :as cb]
     [nr.deck-status :refer [deck-status-span]]
+    [nr.pnp :as pnp]
     [nr.translations :refer [tr tr-span tr-element tr-faction tr-format tr-side tr-sort-order tr-type tr-data]]
     [nr.utils :refer [alliance-dots banned-span cond-button
                       deck-points-card-span dots-html buildable-format->slug format-date-time
@@ -1052,6 +1053,7 @@
     #(edit-deck s)]
    [:button {:on-click #(delete-deck s)} [tr-span [:deck-builder_delete "Delete"]]]
    [:button {:on-click #(do (reset-deck-filters s) (copy-deck s))} [tr-span [:deck-builder_copy "Copy"]]]
+   [:button {:on-click #(pnp/open! deck)} [tr-span [:deck-builder_print-pnp "Print PnP"]]]
    (when (and (:stats deck)
               (not= "none" (get-in @app-state [:options :deckstats])))
      [:button {:on-click #(clear-deck-stats s)}

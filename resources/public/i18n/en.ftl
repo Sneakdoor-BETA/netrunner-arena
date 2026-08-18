@@ -209,6 +209,7 @@ deck-builder_confirm-delete-multiple = Delete {$cnt ->
 }?
 
 deck-builder_copy = Copy
+deck-builder_print-pnp = Print PnP
 
 deck-builder_create-game = Create Game
 
