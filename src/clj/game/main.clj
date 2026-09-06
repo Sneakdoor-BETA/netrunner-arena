@@ -32,7 +32,9 @@
 (defn handle-notification
   ([state text]
    (when state
-     (core/system-say state nil text)))
+     (if (vector? text)
+       (core/system-say-parts state nil text)
+       (core/system-say state nil text))))
   ([state _ text] (handle-notification state text))
   ([state _ _ text] (handle-notification state text)))
 
@@ -49,4 +51,6 @@
                     (= _id (get-in @state [:runner :user :_id])) :runner
                     :else nil)]
     (swap! state assoc-in [side :user] user)
-    (handle-notification state (str username " rejoined the game."))))
+    (handle-notification
+      state
+      [{:username username} " rejoined the game."])))
