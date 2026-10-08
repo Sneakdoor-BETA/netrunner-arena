@@ -49,6 +49,7 @@
         (hiccup/include-js "/lib/js/bootstrap.min.js")
         (hiccup/include-js "/lib/js/toastr.min.js")
         (hiccup/include-js "/lib/js/jnet-stats.js")
+        (hiccup/include-js "/lib/js/jinteki-mobile.user.js")
         [:script {:type "text/javascript"}
          (str "var user=" (json/generate-string user) ";"
               "var ws_config=" (json/generate-string (or ws-config {})) ";")]
