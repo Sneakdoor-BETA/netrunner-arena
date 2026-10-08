@@ -49,3 +49,5 @@ java -XX:-OmitStackTraceInFastThrow -jar target/netrunner-standalone.jar
 ## 维护者
 
 * [Eric03742](https://github.com/eric03742)
+* [Xu Yiwei](https://github.com/MirrorCubeSquare)
+* [cihaobeidao](https://github.com/cihaobeidao)
