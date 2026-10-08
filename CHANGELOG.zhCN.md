@@ -2,6 +2,19 @@
 
 本更新日志只用于记录此分支版本上特有的（主要是针对国内玩家）修改。对上游版本更新的定期同步不会体现在本文档中。
 
+## v100029
+
+* 添加移动端适配。[@cihaobeidao](https://github.com/cihaobeidao)
+
+## v100027
+
+* 添加牌组PNP打印功能。[@Xu Yiwei](https://github.com/MirrorCubeSquare)
+* 修复用户名被识别为卡名产生错误的多语言翻译的问题。[@Xu Yiwei](https://github.com/MirrorCubeSquare)
+
+## v100023
+
+* 添加国服部署指南。
+
 ## v100020
 
 * 更新《制高点》。
